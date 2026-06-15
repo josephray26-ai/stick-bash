@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Editor / agent tooling (not part of the game)
+.claude/
+
+# Logs
+*.log

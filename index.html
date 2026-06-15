@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#86d7ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>STICK BASH! 🪄</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/styles.css" />
+
+  <!-- GSAP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <!-- Three.js via import map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.161.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="aura-vignette"></div>
+  <div id="damage-flash"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-stats">
+      <div class="stat-pill"><span class="ico">🪙</span><span id="coin-count">0</span></div>
+      <div class="stat-pill"><span class="ico">💥</span><span id="hit-count">0</span><span class="stat-sub">hits</span></div>
+    </div>
+
+    <div id="health-wrap">
+      <span class="health-heart">❤️</span>
+      <div id="health-bar"><div id="health-fill"></div><span id="health-text">100</span></div>
+    </div>
+
+    <div class="hud-buttons">
+      <button id="skins-btn" class="hud-btn" title="Your sticks (N)">🪄<span class="btn-label">Sticks <kbd class="key-hint">N</kbd></span></button>
+      <button id="shop-btn" class="hud-btn primary" title="Shop (B)">🛒<span class="btn-label">Shop <kbd class="key-hint">B</kbd></span></button>
+      <button id="pause-btn" class="hud-btn small" title="Pause (Esc)">⏸️</button>
+      <button id="mute-btn" class="hud-btn small" title="Sound">🔊</button>
+    </div>
+
+    <div id="boss-timer" title="Time until the next boss drops in">
+      <span class="bt-ico">🦖</span><span id="boss-timer-text">5:00</span>
+    </div>
+
+    <div id="progress-wrap">
+      <div id="progress-bar"><div id="progress-fill"></div></div>
+      <div id="progress-label">Bonk people to unlock skins!</div>
+    </div>
+
+    <div id="combo"></div>
+  </div>
+
+  <div id="boss-bar">
+    <div class="boss-top"><span id="boss-name"></span><span id="boss-phase"></span></div>
+    <div id="boss-track"><div id="boss-fill"></div></div>
+    <div id="boss-sub"></div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="throw-cd"></div>
+  <div id="fx-layer"></div>
+  <div id="toast"></div>
+  <div id="banner"></div>
+
+  <!-- Boss-encounter abilities -->
+  <div id="ability-bar">
+    <button id="ability-bulwark" class="ability-slot" data-ab="bulwark"><span class="ability-emoji">🛡️</span><span class="ability-key">1</span><span class="ability-cd"></span><span class="ability-cdtext"></span></button>
+    <button id="ability-bloom" class="ability-slot" data-ab="bloom"><span class="ability-emoji">💚</span><span class="ability-key">2</span><span class="ability-cd"></span><span class="ability-cdtext"></span></button>
+    <button id="ability-shards" class="ability-slot" data-ab="shards"><span class="ability-emoji">☄️</span><span class="ability-key">3</span><span class="ability-cd"></span><span class="ability-cdtext"></span></button>
+  </div>
+
+  <!-- Mobile controls -->
+  <div id="joystick"><div id="joystick-knob"></div></div>
+  <button id="throw-btn" class="mobile-only" title="Throw">🪃</button>
+  <button id="swing-btn" class="mobile-only" title="Swing">🪄</button>
+
+  <!-- Start screen -->
+  <div id="start-screen">
+    <div class="start-card">
+      <h1 class="game-title">STICK <span>BASH!</span></h1>
+      <p class="tagline">Bonk everyone. Unlock epic sticks. Flex in the shop.</p>
+      <div class="preview-box"><canvas id="preview-canvas"></canvas></div>
+      <button id="play-btn">▶ PLAY</button>
+      <div class="controls-hint">
+        <span class="desktop-only">WASD move · Space jump · Mouse look · Click/R bonk · Right-click/F throw · B shop</span>
+        <span class="mobile-only">Left: move · Right: look · 🪄 swing · 🪃 throw</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay panels -->
+  <div id="overlay-scrim"></div>
+
+  <div id="shop-panel" class="panel">
+    <div class="panel-head">
+      <h2>🛒 Shop</h2>
+      <div class="panel-coins"><span>🪙</span><span id="shop-coins-mirror"></span></div>
+      <button class="panel-close">✕</button>
+    </div>
+    <div class="shop-tabs">
+      <button class="shop-tab active" data-cat="Hats">🎩 Hats</button>
+      <button class="shop-tab" data-cat="Auras">✨ Auras</button>
+      <button class="shop-tab" data-cat="Sticks">🪄 Sticks</button>
+      <button class="shop-tab" data-cat="Skins">🎨 Body</button>
+    </div>
+    <div id="shop-grid" class="grid"></div>
+    <div class="panel-foot">
+      <button id="reset-btn" class="ghost-btn">Reset progress</button>
+    </div>
+  </div>
+
+  <div id="skins-panel" class="panel">
+    <div class="panel-head">
+      <h2>🪄 Your Sticks</h2>
+      <button class="panel-close">✕</button>
+    </div>
+    <p class="panel-note">Land hits to unlock new sticks. Equip your favorite!</p>
+    <div id="skins-grid" class="grid"></div>
+  </div>
+
+  <div id="pause-panel" class="panel">
+    <div class="panel-head">
+      <h2>⏸️ Paused</h2>
+      <button class="panel-close">✕</button>
+    </div>
+    <div class="pause-body">
+      <button id="resume-btn" class="pause-action resume">▶ Resume</button>
+      <button id="mainmenu-btn" class="pause-action menu">🏠 Main Menu</button>
+      <p class="pause-note">Your coins &amp; unlocks are saved automatically.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+  <script>
+    // wire mobile swing button + keep shop coin mirror fresh
+    window.addEventListener('DOMContentLoaded', () => {
+      const sb = document.getElementById('swing-btn');
+      const fire = (e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('mobile-swing')); };
+      sb.addEventListener('touchstart', fire, { passive: false });
+      sb.addEventListener('mousedown', fire);
+
+      const tb = document.getElementById('throw-btn');
+      const fireThrow = (e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('mobile-throw')); };
+      tb.addEventListener('touchstart', fireThrow, { passive: false });
+      tb.addEventListener('mousedown', fireThrow);
+
+      document.querySelectorAll('.ability-slot').forEach((slot) => {
+        const fire = (e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('mobile-ability', { detail: slot.dataset.ab })); };
+        slot.addEventListener('touchstart', fire, { passive: false });
+        slot.addEventListener('mousedown', fire);
+      });
+    });
+  </script>
+</body>
+</html>

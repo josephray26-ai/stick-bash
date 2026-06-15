@@ -1,0 +1,112 @@
+// Game data: stick skins (unlocked by hits) and shop cosmetics (bought with coins)
+
+// Stick skins are UNLOCKED by total hits landed. The premise of the game:
+// "the more people you hit with the stick the more skins you unlock."
+export const STICK_SKINS = [
+  { id: 'oak', name: 'Oak Branch', hits: 0, rarity: 'Common',
+    desc: 'A trusty wooden stick. Where every legend begins.',
+    colors: { main: 0x9c6b3f, accent: 0x7a4f28, glow: 0x000000 }, style: 'wood' },
+  { id: 'pine', name: 'Pine Paddle', hits: 15, rarity: 'Common',
+    desc: 'Flat, wide, and great for big swooshy swings.',
+    colors: { main: 0xc89b6a, accent: 0x8a6a3c, glow: 0x000000 }, style: 'paddle' },
+  { id: 'cobalt', name: 'Cobalt Rod', hits: 40, rarity: 'Uncommon',
+    desc: 'Cold blue metal that hums with energy.',
+    colors: { main: 0x2f6fed, accent: 0x9fc0ff, glow: 0x1a3a7a }, style: 'metal' },
+  { id: 'gold', name: 'Golden Scepter', hits: 90, rarity: 'Rare',
+    desc: 'For when you want every hit to look expensive.',
+    colors: { main: 0xffd23f, accent: 0xfff3b0, glow: 0x6b5300 }, style: 'metal' },
+  { id: 'candy', name: 'Candy Cane', hits: 160, rarity: 'Rare',
+    desc: 'Sweet looks, sour hits. Smells faintly of peppermint.',
+    colors: { main: 0xff4d6d, accent: 0xffffff, glow: 0x3a0010 }, style: 'stripe' },
+  { id: 'lava', name: 'Molten Mauler', hits: 280, rarity: 'Epic',
+    desc: 'Forged in a volcano. Glows brighter as you fight.',
+    colors: { main: 0xff5a1f, accent: 0xffd24d, glow: 0xff3b00 }, style: 'glow' },
+  { id: 'saber', name: 'Neon Saber', hits: 450, rarity: 'Epic',
+    desc: 'A blade of pure light. Hums when it swings.',
+    colors: { main: 0x39ff14, accent: 0xd6ffce, glow: 0x39ff14 }, style: 'beam' },
+  { id: 'rainbow', name: 'Rainbow Banhammer', hits: 700, rarity: 'Legendary',
+    desc: 'The ultimate flex. Cycles through every color of victory.',
+    colors: { main: 0xff00ff, accent: 0xffffff, glow: 0xff00aa }, style: 'rainbow' },
+
+  // ---- 50 more variations ----
+  { id: 'slugger', name: 'Slugger Bat', hits: 780, rarity: 'Rare', desc: 'Batter up! A solid swing of nostalgia.', colors: { main: 0xb5793c, accent: 0x7a4f28, glow: 0x000000 }, style: 'bat' },
+  { id: 'pencil', name: 'No. 2 Pencil', hits: 800, rarity: 'Rare', desc: 'Mightier than the sword? Let’s find out.', colors: { main: 0xffd23f, accent: 0xff8a8a, glow: 0x000000 }, style: 'pencil' },
+  { id: 'chili_fork', name: 'Chili Fork', hits: 820, rarity: 'Rare', desc: 'Extra spicy. Bring a glass of milk.', colors: { main: 0xff3b2f, accent: 0xd0d6de, glow: 0x000000 }, style: 'fork' },
+  { id: 'steel_katana', name: 'Steel Katana', hits: 840, rarity: 'Epic', desc: 'A clean, honourable edge.', colors: { main: 0xd8dee9, accent: 0xeceff4, glow: 0x223044 }, style: 'katana' },
+  { id: 'butcher', name: 'Butcher’s Cleaver', hits: 860, rarity: 'Rare', desc: 'Heavy, blunt, and oddly satisfying.', colors: { main: 0xc7ccd1, accent: 0x8a2b2b, glow: 0x000000 }, style: 'cleaver' },
+  { id: 'paint_brush', name: 'Painter’s Brush', hits: 880, rarity: 'Rare', desc: 'Paints the town — and your foes — red.', colors: { main: 0xff6ad5, accent: 0xd0a060, glow: 0x000000 }, style: 'brush' },
+  { id: 'miner_pick', name: 'Miner’s Pickaxe', hits: 900, rarity: 'Rare', desc: 'Diamonds today, bonks tomorrow.', colors: { main: 0x9aa0a8, accent: 0xb5793c, glow: 0x000000 }, style: 'pickaxe' },
+  { id: 'lumber_axe', name: 'Lumberjack Axe', hits: 920, rarity: 'Rare', desc: 'Timberrr!', colors: { main: 0xb5793c, accent: 0xd9d9d9, glow: 0x000000 }, style: 'axe' },
+  { id: 'obsidian_dagger', name: 'Obsidian Dagger', hits: 950, rarity: 'Epic', desc: 'Sharp, silent, and very stabby.', colors: { main: 0x2b2b3a, accent: 0x9a86d0, glow: 0x1a0a2a }, style: 'dagger' },
+  { id: 'pipe_wrench', name: 'Pipe Wrench', hits: 980, rarity: 'Rare', desc: 'Plumbing supplies, repurposed.', colors: { main: 0xd0d6de, accent: 0x5a5f69, glow: 0x000000 }, style: 'wrench' },
+  { id: 'ruby_shard', name: 'Ruby Shard', hits: 1010, rarity: 'Epic', desc: 'A blade of solid crimson crystal.', colors: { main: 0xff3b6b, accent: 0xffd0dc, glow: 0x6b0020 }, style: 'gem' },
+  { id: 'war_spear', name: 'War Spear', hits: 1050, rarity: 'Epic', desc: 'Reach out and bonk someone.', colors: { main: 0x9aa0a8, accent: 0xd0d6de, glow: 0x000000 }, style: 'spear' },
+  { id: 'banana', name: 'Banana Split', hits: 1080, rarity: 'Rare', desc: 'Slippery when swung.', colors: { main: 0xffe14d, accent: 0x8a6a3c, glow: 0x000000 }, style: 'banana' },
+  { id: 'lollipop', name: 'Mega Lollipop', hits: 1110, rarity: 'Rare', desc: 'A sweet treat with a hard center.', colors: { main: 0xff7ec2, accent: 0xffffff, glow: 0x000000 }, style: 'lollipop' },
+  { id: 'sapphire_shard', name: 'Sapphire Shard', hits: 1150, rarity: 'Epic', desc: 'Cool, calm, and crushing.', colors: { main: 0x2f6fed, accent: 0xbfd6ff, glow: 0x0a2a6b }, style: 'gem' },
+  { id: 'harpoon', name: 'Whaler’s Harpoon', hits: 1190, rarity: 'Epic', desc: 'Thar she blows!', colors: { main: 0x9aa0a8, accent: 0xd0d6de, glow: 0x000000 }, style: 'harpoon' },
+  { id: 'bone_club', name: 'Bone Crusher', hits: 1220, rarity: 'Epic', desc: 'Straight out of the stone age.', colors: { main: 0xeae3cf, accent: 0xc9bfa0, glow: 0x000000 }, style: 'bone' },
+  { id: 'war_hammer', name: 'War Hammer', hits: 1260, rarity: 'Epic', desc: 'Big head, bigger swing.', colors: { main: 0x8a8f99, accent: 0x5a5f69, glow: 0x000000 }, style: 'warhammer' },
+  { id: 'knight_sword', name: 'Knight’s Broadsword', hits: 1300, rarity: 'Epic', desc: 'Noble steel for a noble bonk.', colors: { main: 0xd8dee9, accent: 0xb0b6c0, glow: 0x000000 }, style: 'broadsword' },
+  { id: 'spiked_mace', name: 'Spiked Mace', hits: 1340, rarity: 'Epic', desc: 'Pointy in all the right places.', colors: { main: 0x6b6b78, accent: 0x9aa0b0, glow: 0x000000 }, style: 'mace' },
+  { id: 'emerald_shard', name: 'Emerald Shard', hits: 1380, rarity: 'Epic', desc: 'Green, gleaming, and gorgeous.', colors: { main: 0x33d17a, accent: 0xbfffe0, glow: 0x0a5a30 }, style: 'gem' },
+  { id: 'nunchaku', name: 'Nunchaku', hits: 1420, rarity: 'Epic', desc: 'Wax on, bonk off.', colors: { main: 0x222222, accent: 0xb5793c, glow: 0x000000 }, style: 'nunchaku' },
+  { id: 'spiked_flail', name: 'Spiked Flail', hits: 1470, rarity: 'Epic', desc: 'Swing first, aim never.', colors: { main: 0x5a5f69, accent: 0x9aa0b0, glow: 0x000000 }, style: 'flail' },
+  { id: 'power_drill', name: 'Power Drill', hits: 1520, rarity: 'Epic', desc: 'Brrrrrrt.', colors: { main: 0xffb300, accent: 0x5a5f69, glow: 0x000000 }, style: 'drill' },
+  { id: 'crimson_katana', name: 'Crimson Katana', hits: 1580, rarity: 'Legendary', desc: 'Forged in fury, finished in red.', colors: { main: 0xb02030, accent: 0xff6a7a, glow: 0x3a0010 }, style: 'katana' },
+  { id: 'amethyst_shard', name: 'Amethyst Shard', hits: 1640, rarity: 'Epic', desc: 'Royal purple, royally sharp.', colors: { main: 0x9b5de5, accent: 0xe6ccff, glow: 0x3a008a }, style: 'gem' },
+  { id: 'frost_fang', name: 'Frost Fang', hits: 1700, rarity: 'Epic', desc: 'Shards of eternal ice.', colors: { main: 0xaee9ff, accent: 0xffffff, glow: 0x2aa6e0 }, style: 'ice' },
+  { id: 'glacier_spear', name: 'Glacier Lance', hits: 1780, rarity: 'Legendary', desc: 'A spear carved from a frozen sea.', colors: { main: 0xaee9ff, accent: 0xffffff, glow: 0x2aa6e0 }, style: 'spear' },
+  { id: 'ninja_star', name: 'Ninja Starblade', hits: 1850, rarity: 'Epic', desc: 'A whirling four-point throwing star.', colors: { main: 0x3a3f4a, accent: 0xc7ccd1, glow: 0x000000 }, style: 'starblade' },
+  { id: 'royal_rapier', name: 'Royal Rapier', hits: 1950, rarity: 'Legendary', desc: 'En garde! Touché. Bonké.', colors: { main: 0xffd23f, accent: 0xfff3b0, glow: 0x6b5300 }, style: 'rapier' },
+  { id: 'double_axe', name: 'Berserker Axes', hits: 2050, rarity: 'Legendary', desc: 'Twice the heads, twice the dread.', colors: { main: 0x7a4f28, accent: 0xc7ccd1, glow: 0x000000 }, style: 'doubleaxe' },
+  { id: 'star_wand', name: 'Shooting Star', hits: 2200, rarity: 'Legendary', desc: 'Wish upon it, then whack with it.', colors: { main: 0xfff1a8, accent: 0xffd23f, glow: 0xffae00 }, style: 'star' },
+  { id: 'golden_katana', name: 'Golden Katana', hits: 2350, rarity: 'Legendary', desc: 'Worth a fortune. Hits like one too.', colors: { main: 0xffd23f, accent: 0xfff3b0, glow: 0x6b5300 }, style: 'katana' },
+  { id: 'jeweled_scepter', name: 'Jeweled Scepter', hits: 2500, rarity: 'Legendary', desc: 'Rule the lobby with an iron scepter.', colors: { main: 0xffd23f, accent: 0xff3b6b, glow: 0x6b5300 }, style: 'scepter' },
+  { id: 'inferno_blade', name: 'Inferno Blade', hits: 2700, rarity: 'Legendary', desc: 'A column of roaring flame.', colors: { main: 0xff5a1f, accent: 0xffd24d, glow: 0xff3b00 }, style: 'flame' },
+  { id: 'molten_hammer', name: 'Molten Hammer', hits: 2900, rarity: 'Legendary', desc: 'Heavy, hot, and absolutely brutal.', colors: { main: 0xff5a1f, accent: 0xffd24d, glow: 0xff3b00 }, style: 'warhammer' },
+  { id: 'buzzsaw', name: 'Buzz Saw', hits: 3100, rarity: 'Legendary', desc: 'A spinning disc of bad decisions.', colors: { main: 0xc7ccd1, accent: 0xff3b3b, glow: 0x000000 }, style: 'sawblade' },
+  { id: 'toxic_blade', name: 'Toxic Edge', hits: 3300, rarity: 'Legendary', desc: 'Radioactive and proud of it.', colors: { main: 0x39ff14, accent: 0xd6ffce, glow: 0x2a8a00 }, style: 'flame' },
+  { id: 'grim_scythe', name: 'Grim Reaper', hits: 3500, rarity: 'Legendary', desc: 'Comes for everyone eventually.', colors: { main: 0x3a3f4a, accent: 0xb0b6c0, glow: 0x000000 }, style: 'scythe' },
+  { id: 'soul_fire', name: 'Soul Fire', hits: 3700, rarity: 'Legendary', desc: 'Ghostly blue flames that never warm.', colors: { main: 0x33ccff, accent: 0xbff0ff, glow: 0x00aaff }, style: 'flame' },
+  { id: 'poseidon', name: 'Poseidon’s Trident', hits: 3900, rarity: 'Legendary', desc: 'Command the seas from dry land.', colors: { main: 0x2aa6e0, accent: 0xbfefff, glow: 0x0a6fa0 }, style: 'trident' },
+  { id: 'demon_wing', name: 'Demon Wing', hits: 4100, rarity: 'Legendary', desc: 'Winged, wicked, and well-balanced.', colors: { main: 0x6a1b9a, accent: 0xff3b6b, glow: 0x3a008a }, style: 'wing' },
+  { id: 'storm_edge', name: 'Storm Edge', hits: 4300, rarity: 'Legendary', desc: 'A jagged bolt of pure lightning.', colors: { main: 0xfff66b, accent: 0xffffff, glow: 0xffd000 }, style: 'lightning' },
+  { id: 'shadow_reaper', name: 'Shadow Reaper', hits: 4500, rarity: 'Legendary', desc: 'Darkness given a wicked point.', colors: { main: 0x2b2b3a, accent: 0x9b5de5, glow: 0x3a008a }, style: 'demon' },
+  { id: 'chainsaw', name: 'Chainsaw', hits: 4800, rarity: 'Legendary', desc: 'Maximum chaos, minimum subtlety.', colors: { main: 0xd23b3b, accent: 0x9aa0b0, glow: 0x000000 }, style: 'chainsaw' },
+  { id: 'phoenix', name: 'Phoenix Feather', hits: 5100, rarity: 'Legendary', desc: 'Rises from the ashes, again and again.', colors: { main: 0xff3b1f, accent: 0xffd23f, glow: 0xff5a00 }, style: 'feather' },
+  { id: 'retro_console', name: 'Retro Console', hits: 5400, rarity: 'Legendary', desc: 'Achievement unlocked: bonk.', colors: { main: 0x9aa7b3, accent: 0x6a3fb0, glow: 0x000000 }, style: 'console' },
+  { id: 'cosmic_orb', name: 'Cosmic Orb', hits: 5800, rarity: 'Legendary', desc: 'A swirling galaxy on a stick.', colors: { main: 0x7a3cff, accent: 0xff6ad5, glow: 0x4b00b5 }, style: 'orb' },
+  { id: 'cyber_blade', name: 'Cyber Blade', hits: 6300, rarity: 'Mythic', desc: 'Circuitry that cuts. Very online.', colors: { main: 0x00e5ff, accent: 0xd6e2ff, glow: 0x0077ff }, style: 'cyber' },
+  { id: 'prism_edge', name: 'Prism Edge', hits: 7000, rarity: 'Mythic', desc: 'The rarest blade in the realm — pure prismatic light.', colors: { main: 0x00e0ff, accent: 0xffffff, glow: 0x00aaff }, style: 'prism' },
+];
+
+// Shop items are BOUGHT with coins. "Cool stuff for your character or stick."
+export const SHOP_ITEMS = [
+  // ---- Hats (character) ----
+  { id: 'hat_cap', cat: 'Hats', name: 'Backwards Cap', price: 120, color: 0xff3b3b, kind: 'cap', emoji: '🧢' },
+  { id: 'hat_top', cat: 'Hats', name: 'Top Hat', price: 350, color: 0x1a1a1a, kind: 'tophat', emoji: '🎩' },
+  { id: 'hat_crown', cat: 'Hats', name: 'Golden Crown', price: 900, color: 0xffd23f, kind: 'crown', emoji: '👑' },
+  { id: 'hat_party', cat: 'Hats', name: 'Party Cone', price: 220, color: 0x9b5de5, kind: 'party', emoji: '🥳' },
+
+  // ---- Auras / trails (character) ----
+  { id: 'aura_blue', cat: 'Auras', name: 'Frost Aura', price: 400, color: 0x4dd2ff, kind: 'aura', emoji: '❄️' },
+  { id: 'aura_fire', cat: 'Auras', name: 'Inferno Aura', price: 650, color: 0xff5a1f, kind: 'aura', emoji: '🔥' },
+  { id: 'aura_void', cat: 'Auras', name: 'Void Aura', price: 1200, color: 0xb14dff, kind: 'aura', emoji: '🌌' },
+
+  // ---- Premium sticks (stick) bought, not earned ----
+  { id: 'stick_diamond', cat: 'Sticks', name: 'Diamond Stick', price: 800, color: 0x6ff0ff, kind: 'stick', emoji: '💎',
+    skin: { id: 'stick_diamond', name: 'Diamond Stick', rarity: 'Premium', colors: { main: 0x6ff0ff, accent: 0xffffff, glow: 0x0aa6c2 }, style: 'glow' } },
+  { id: 'stick_bone', cat: 'Sticks', name: 'Bone Club', price: 500, color: 0xeae3cf, kind: 'stick', emoji: '🦴',
+    skin: { id: 'stick_bone', name: 'Bone Club', rarity: 'Premium', colors: { main: 0xeae3cf, accent: 0xc9bfa0, glow: 0x000000 }, style: 'club' } },
+  { id: 'stick_galaxy', cat: 'Sticks', name: 'Galaxy Staff', price: 1500, color: 0x7a3cff, kind: 'stick', emoji: '🌠',
+    skin: { id: 'stick_galaxy', name: 'Galaxy Staff', rarity: 'Premium', colors: { main: 0x7a3cff, accent: 0xff6ad5, glow: 0x4b00b5 }, style: 'rainbow' } },
+
+  // ---- Body colors (character) ----
+  { id: 'body_lime', cat: 'Skins', name: 'Lime Body', price: 150, color: 0x9be35a, kind: 'body', emoji: '🟢' },
+  { id: 'body_pink', cat: 'Skins', name: 'Bubblegum Body', price: 150, color: 0xff7ec2, kind: 'body', emoji: '🩷' },
+  { id: 'body_robot', cat: 'Skins', name: 'Robot Body', price: 700, color: 0x9aa7b3, kind: 'body', emoji: '🤖' },
+];
+
+export const COINS_PER_HIT = 6;
+export const COMBO_BONUS = 2; // extra coins per combo level
