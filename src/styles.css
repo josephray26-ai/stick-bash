@@ -312,6 +312,48 @@ html, body {
 #play-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #3f9a30; }
 .controls-hint { margin-top: 14px; font-size: 12px; font-weight: 600; color: #8a7b9a; }
 
+/* "Play with Friends" button (secondary to the green PLAY) */
+#friends-btn {
+  font-family: inherit; font-weight: 700; font-size: clamp(15px, 3.4vw, 19px);
+  color: #fff; cursor: pointer; border: none; border-radius: 16px;
+  margin-top: 12px; padding: 11px 30px;
+  background: linear-gradient(180deg, #6db6ff, #2f7fed);
+  box-shadow: 0 5px 0 #1f5ec0, 0 10px 18px rgba(0,0,0,.28);
+  transition: transform .08s ease;
+}
+#friends-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f5ec0; }
+
+/* connected-players chip (top-centre, under the boss timer) */
+#friends-hud {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 6; padding: 7px 14px; border-radius: 999px;
+  background: rgba(20,10,40,.6); color: #fff; font-weight: 700; font-size: 14px;
+  pointer-events: none; opacity: 0; transition: opacity .25s ease;
+}
+#friends-hud.show { opacity: 1; }
+
+/* invite-link bar (bottom-centre while connected) */
+#invite-bar {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%) translateY(20px);
+  z-index: 8; display: none; align-items: center; gap: 10px;
+  max-width: min(92vw, 620px); padding: 9px 12px;
+  background: rgba(20,10,40,.78); border: 2px solid rgba(255,255,255,.25);
+  border-radius: 14px; color: #fff; font-weight: 600; font-size: 13px;
+  opacity: 0; transition: opacity .25s ease, transform .25s ease;
+}
+#invite-bar.show { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+#invite-bar .invite-label { white-space: nowrap; opacity: .9; }
+#invite-bar .invite-link {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, monospace; font-size: 12px; color: #bfe0ff; user-select: all;
+}
+#invite-copy {
+  flex: none; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;
+  color: #fff; border: none; border-radius: 9px; padding: 7px 14px;
+  background: linear-gradient(180deg, #6db6ff, #2f7fed);
+}
+#invite-copy:active { transform: translateY(1px); }
+
 /* ---------------- Panels (shop / skins) ---------------- */
 #overlay-scrim {
   position: fixed; inset: 0; background: rgba(20,10,30,.55); z-index: 49;

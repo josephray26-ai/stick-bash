@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { createWorld, createCharacter, buildStick, ARENA } from './world.js';
+import { createWorld, createCharacter, buildStick, makeHat, ARENA } from './world.js';
+import * as remote from './remote.js';
 import { EnemyManager } from './enemies.js';
 import { BossManager } from './boss.js';
 import { Controls } from './controls.js';
@@ -54,6 +55,7 @@ function jump() {
 }
 
 const enemies = new EnemyManager(scene, 28);
+remote.init(scene);   // renders other players (only used when connected)
 
 // ---------------------------------------------------------------------------
 // Boss system — a rotating boss drops in every 5 minutes
@@ -72,8 +74,12 @@ const bossMgr = new BossManager(scene, {
     if (bossMgr.boss) {
       takeDamage(bossMgr.boss, dmg);            // the player is always hit (no dodging by distance)
       enemies.blastAll(bossMgr.boss.group.position);  // every NPC gets blasted too
+      if (mpActive() && net.isHost) net.event('area', { dmg });  // every friend gets hit too
     }
   },
+  // client-side mirror of the boss (driven by the host's snapshot)
+  onClientSpawn: (def) => { UI.showBoss(def); UI.bigBanner(`${def.emoji} ${def.name}`, `${def.sub} — incoming!`); UI.toast('A BOSS is dropping in!', 'bad'); },
+  onClientDespawn: () => { UI.hideBoss(); },
   onPhase: (def) => { UI.toast(`${def.name} entered PHASE 2! 😱`, 'bad'); },
   onRevive: (def) => { UI.bigBanner('🔥 REBORN FROM ASH!', `${def.name} rises again!`); sfx.unlock(); },
   onHpChange: (hp, max, phase) => UI.updateBoss(hp, max, phase),
@@ -200,9 +206,19 @@ function swing() {
 }
 
 function resolveHit() {
-  let hit = enemies.tryHit(player.pos, getForward(), 5.2, 0.55);
+  const fwd = getForward();
+  if (isClient()) {
+    // client doesn't own NPC/boss HP — detect the hit locally, tell the host to apply it
+    let hit = false;
+    const i = enemies.pickHitIndex(player.pos, fwd, 5.2, 0.55);
+    if (i >= 0) { net.event('hit', { k: 'n', i }, net.hostId); hit = true; }
+    if (bossMgr.pos && inFrontWithin(bossMgr.pos, fwd, 8.2, 0.4)) { net.event('hit', { k: 'b', dmg: 1 }, net.hostId); hit = true; }
+    if (hit) awardHit(0.18);   // personal coins/combo are awarded locally
+    return;
+  }
+  let hit = enemies.tryHit(player.pos, fwd, 5.2, 0.55);
   // the boss is big — a swing that lands on it counts too
-  if (bossMgr.boss && bossMgr.boss.tryHit(player.pos, getForward(), 5.2, 1)) hit = true;
+  if (bossMgr.boss && bossMgr.boss.tryHit(player.pos, fwd, 5.2, 1)) hit = true;
   if (!hit) return;
   awardHit(0.18);
 }
@@ -379,13 +395,16 @@ function explodeShard(pos) {
   gsap.to(flash.material, { opacity: 0, duration: 0.3, onComplete: () => scene.remove(flash) });
   screenShake(0.2);
   // heavy single-target on boss
-  if (bossMgr.boss && bossMgr.boss.state === 'active') {
-    const b = bossMgr.boss.group.position; if (Math.hypot(b.x - pos.x, b.z - pos.z) < 6) { bossMgr.boss.hit(3); awardHit(0); }
-  }
+  const bp = bossMgr.pos;
+  if (bp && Math.hypot(bp.x - pos.x, bp.z - pos.z) < 6) { damageBoss(3); awardHit(0); }
   // splash on grouped NPCs
-  for (const e of enemies.enemies) {
+  for (let i = 0; i < enemies.enemies.length; i++) {
+    const e = enemies.enemies[i];
     if (e.state !== 'alive') continue;
-    if (Math.hypot(e.group.position.x - pos.x, e.group.position.z - pos.z) < 4.5) { enemies.hit(e, pos); awardHit(0); }
+    if (Math.hypot(e.group.position.x - pos.x, e.group.position.z - pos.z) < 4.5) {
+      if (isClient()) net.event('hit', { k: 'n', i }, net.hostId); else enemies.hit(e, pos);
+      awardHit(0);
+    }
   }
 }
 
@@ -401,7 +420,8 @@ function updateShards(dt) {
     p.spin += dt * 24; p.group.rotation.set(p.spin, p.spin * 0.7, 0);
     p.group.position.addScaledVector(p.dir, 52 * dt); p.dist += 52 * dt;
     let boom = false;
-    if (bossMgr.boss && bossMgr.boss.state === 'active') { const b = bossMgr.boss.group.position; if (Math.hypot(b.x - p.group.position.x, b.z - p.group.position.z) < 4.5 && Math.abs(p.group.position.y - 5) < 7) boom = true; }
+    const bpos = bossMgr.pos;
+    if (bpos && Math.hypot(bpos.x - p.group.position.x, bpos.z - p.group.position.z) < 4.5 && Math.abs(p.group.position.y - 5) < 7) boom = true;
     if (!boom) for (const e of enemies.enemies) { if (e.state === 'alive' && Math.hypot(e.group.position.x - p.group.position.x, e.group.position.z - p.group.position.z) < 2) { boom = true; break; } }
     if (p.group.position.y <= 0.3) boom = true;
     if (p.dist > 60) boom = true;
@@ -504,6 +524,20 @@ function updateThrow(dt) {
 }
 
 function checkThrowHits(t) {
+  if (isClient()) {
+    // client: detect overlaps against the mirrored NPCs/boss, report to host (dedupe by index)
+    for (let i = 0; i < enemies.enemies.length; i++) {
+      const e = enemies.enemies[i];
+      if (e.state !== 'alive' || t.hit.has(i)) continue;
+      const dx = e.group.position.x - t.group.position.x, dz = e.group.position.z - t.group.position.z;
+      if (dx * dx + dz * dz < THROW_HIT_R * THROW_HIT_R) { t.hit.add(i); net.event('hit', { k: 'n', i }, net.hostId); awardHit(0.12); }
+    }
+    if (bossMgr.pos && !t.hit.has('boss')) {
+      const dx = bossMgr.pos.x - t.group.position.x, dz = bossMgr.pos.z - t.group.position.z;
+      if (dx * dx + dz * dz < 4.5 * 4.5) { t.hit.add('boss'); net.event('hit', { k: 'b', dmg: 2 }, net.hostId); awardHit(0.12); }
+    }
+    return;
+  }
   for (const e of enemies.enemies) {
     if (e.state !== 'alive' || t.hit.has(e)) continue;
     const dx = e.group.position.x - t.group.position.x;
@@ -619,6 +653,14 @@ document.getElementById('play-btn').addEventListener('click', () => {
   resumeGame();
 });
 
+// "Play with Friends" — host a new room, or join one if arrived via an invite link
+const invitedRoom = new URLSearchParams(location.search).get('r');
+const friendsBtn = document.getElementById('friends-btn');
+if (friendsBtn) {
+  if (invitedRoom) friendsBtn.textContent = '👥 Join Friend';
+  friendsBtn.addEventListener('click', () => startMultiplayer(invitedRoom || randomRoomCode()));
+}
+
 function resumeGame() {
   if (UI.anyPanelOpen()) return;
   controls.setEnabled(true);
@@ -638,10 +680,182 @@ function goToStartScreen() {
   UI.closePanels(true);
   controls.setEnabled(false);
   if (document.pointerLockElement) document.exitPointerLock();
+  leaveMultiplayer();
   resetBattle();
   bossMgr.clear(); UI.hideBoss();   // clear any active boss + its HUD
   updatePreview();             // refresh the locker avatar with current cosmetics
   startScreen.classList.remove('hidden');
+}
+
+// ---------------------------------------------------------------------------
+// Multiplayer (co-op) — opt-in. net.js + its CDN dependency are imported lazily
+// here, so the solo "▶ PLAY" path never loads any networking code.
+// ---------------------------------------------------------------------------
+let net = null;            // the net module (null until "Play with Friends")
+let netSendAcc = 0;        // throttle accumulator for broadcasting our state
+let worldAcc = 0;          // throttle accumulator for the host's world snapshot
+let clientWorld = { t: 0, e: null, b: null };   // latest host snapshot (on clients)
+const _remoteKnock = new THREE.Vector3();       // throwaway knock target for remote players
+
+function mpActive() { return !!(net && net.connected); }
+function isClient() { return mpActive() && !net.isHost; }
+function isHostOrSolo() { return !mpActive() || net.isHost; }
+
+// every player the host's AI should consider — { id, pos, h, knock }
+function playersList() {
+  const me = { id: mpActive() ? net.selfId : 'me', pos: player.pos, h: player.h, knock: player.knock };
+  if (!mpActive()) return [me];
+  const list = [me];
+  for (const [pid, st] of net.playerStates) list.push({ id: pid, pos: new THREE.Vector3(st.x, 0, st.z), h: 0, knock: _remoteKnock });
+  return list;
+}
+
+// an NPC/boss landed a hit on player `playerId` (host decides; routes to the right peer)
+function onAnyPlayerHit(source, amount, playerId) {
+  const amt = amount == null ? ENEMY_DAMAGE : amount;
+  if (!mpActive() || playerId == null || playerId === net.selfId) { takeDamage(source, amt); return; }
+  const o = source && (source.group ? source.group.position : (source.position || source));
+  net.event('dmg', { amt, ox: o ? +o.x.toFixed(1) : 0, oz: o ? +o.z.toFixed(1) : 0 }, playerId);
+}
+
+// damage the boss: host applies directly; client asks the host to apply it
+function damageBoss(amount) {
+  if (isClient()) { if (bossMgr.pos) net.event('hit', { k: 'b', dmg: amount }, net.hostId); }
+  else if (bossMgr.boss && bossMgr.boss.state === 'active') bossMgr.boss.hit(amount);
+}
+
+// is `targetPos` within `maxDist` and inside the forward cone (dot >= minDot)?
+function inFrontWithin(targetPos, fwd, maxDist, minDot) {
+  const dx = targetPos.x - player.pos.x, dz = targetPos.z - player.pos.z;
+  const dist = Math.hypot(dx, dz);
+  if (dist > maxDist) return false;
+  return (dx / dist) * fwd.x + (dz / dist) * fwd.z >= minDot;
+}
+
+function remotePosOf(peer) {
+  const st = net.playerStates.get(peer);
+  return st ? new THREE.Vector3(st.x, 0, st.z) : null;
+}
+
+// host broadcasts the authoritative world (NPCs + boss + timer) ~12x/sec
+function worldTick(dt) {
+  worldAcc += dt;
+  if (worldAcc < 1 / 12) return;
+  worldAcc = 0;
+  net.sendWorld({ e: enemies.serialize(), b: bossMgr.serialize(), t: bossMgr.timer });
+}
+
+function onWorld(peer, data) {
+  if (net.isHost || peer !== net.hostId) return;   // only trust the host
+  clientWorld = data;
+  enemies.applySnapshot(data.e);
+  bossMgr.applySnapshot(data.b);
+}
+
+function onNetEvent(peer, msg) {
+  switch (msg.t) {
+    case 'hit':                       // a client reports a hit (host applies it)
+      if (!net.isHost) return;
+      if (msg.k === 'n') enemies.hitById(msg.i, remotePosOf(peer));
+      else if (msg.k === 'b' && bossMgr.boss && bossMgr.boss.state === 'active') bossMgr.boss.hit(msg.dmg || 1);
+      break;
+    case 'dmg':                       // the host's NPC/boss bonked me
+      takeDamage({ position: { x: msg.ox, z: msg.oz } }, msg.amt);
+      break;
+    case 'area':                      // boss special — hits everyone
+      takeDamage({ position: bossMgr.pos || player.pos }, msg.dmg);
+      screenShake(0.4);
+      break;
+  }
+}
+
+function randomRoomCode() { return Math.random().toString(36).slice(2, 7); }
+
+async function startMultiplayer(roomId) {
+  try {
+    if (!net) {
+      const mod = await import('./net.js');
+      net = mod.net;
+      net.on('player', (peer, data) => remote.upsert(peer, data));
+      net.on('world', onWorld);
+      net.on('event', onNetEvent);
+      net.on('peerjoin', () => { sfx.unlock(); updateFriendsHud(); });
+      net.on('peerleave', (id) => { remote.remove(id); updateFriendsHud(); });
+      net.on('host', () => updateFriendsHud());
+    }
+    net.connect(roomId);
+    history.replaceState(null, '', `?r=${roomId}`);
+    showInviteBar(roomId);
+    updateFriendsHud();
+    unlockAudio();
+    startScreen.classList.add('hidden');
+    resetBattle();
+    resumeGame();
+    UI.toast('Connected! Share the invite link 🔗', 'good');
+  } catch (e) {
+    console.error('multiplayer failed', e);
+    UI.toast('Could not start multiplayer 😕', 'bad');
+  }
+}
+
+function leaveMultiplayer() {
+  if (net && net.connected) net.leave();
+  remote.clear();
+  netSendAcc = 0;
+  const bar = document.getElementById('invite-bar');
+  const hud = document.getElementById('friends-hud');
+  if (bar) bar.classList.remove('show');
+  if (hud) hud.classList.remove('show');
+  if (location.search) history.replaceState(null, '', location.pathname);
+}
+
+function localPlayerState() {
+  const bodyItem = SHOP_ITEMS.find((i) => i.id === state.equipped.Skins);
+  return {
+    x: +player.pos.x.toFixed(2),
+    z: +player.pos.z.toFixed(2),
+    yaw: +controls.yaw.toFixed(2),
+    h: +player.h.toFixed(2),
+    act: swinging ? 'swing' : (throwing ? 'throw' : 'idle'),
+    hp: Math.round(player.hp),
+    body: bodyItem ? bodyItem.color : 0xffcf6e,
+    hat: state.equipped.Hats || 0,
+    stick: state.equippedStick,
+  };
+}
+
+function netTick(dt) {
+  netSendAcc += dt;
+  if (netSendAcc < 1 / 12) return;   // ~12 broadcasts/sec
+  netSendAcc = 0;
+  net.sendPlayer(localPlayerState());
+}
+
+function showInviteBar(roomId) {
+  const bar = document.getElementById('invite-bar');
+  if (!bar) return;
+  const url = `${location.origin}${location.pathname}?r=${roomId}`;
+  const link = document.getElementById('invite-link');
+  if (link) link.textContent = url;
+  bar.classList.add('show');
+  const copyBtn = document.getElementById('invite-copy');
+  if (copyBtn && !copyBtn._wired) {
+    copyBtn._wired = true;
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard?.writeText(url).then(
+        () => UI.toast('Invite link copied! 📋', 'good'),
+        () => UI.toast('Copy failed — select the link', 'bad'));
+    });
+  }
+}
+
+function updateFriendsHud() {
+  const hud = document.getElementById('friends-hud');
+  if (!hud) return;
+  if (!mpActive()) { hud.classList.remove('show'); return; }
+  const others = net.peers.length;
+  hud.classList.add('show');
+  hud.textContent = `👥 ${others + 1} player${others ? 's' : ''}${net.isHost ? ' · host' : ''}`;
 }
 
 // shortcuts: B shop · N sticks · Esc/P pause (openPanel pauses + releases the mouse)
@@ -752,12 +966,22 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   if (controls.enabled) {
     updateMovement(dt);
-    bossMgr.update(dt, player, takeDamage);
-    UI.updateBossTimer(bossMgr.timer, bossMgr.active);
-    enemies.update(dt, player.pos, takeDamage, bossMgr.boss);
+    if (isHostOrSolo()) {
+      // host/solo own the world simulation
+      const pls = playersList();
+      bossMgr.update(dt, pls, onAnyPlayerHit);
+      enemies.update(dt, pls, onAnyPlayerHit, bossMgr.boss);
+      UI.updateBossTimer(bossMgr.timer, bossMgr.active);
+    } else {
+      // client: mirror the host's snapshot, run no AI
+      enemies.updateRemote(dt);
+      bossMgr.updateRemote(dt);
+      UI.updateBossTimer(clientWorld.t || 0, bossMgr.active);
+    }
     updateAbilities(dt);
     updateThrow(dt);
     updateThrowCooldownUI(dt);
+    if (mpActive()) { remote.update(dt); netTick(dt); if (net.isHost) worldTick(dt); }
   }
 
   // combo decay
@@ -832,116 +1056,6 @@ function updatePreview() {
   } else preview.auraRing = null;
 }
 
-function makeHat(item) {
-  const g = new THREE.Group();
-  g.position.y = 4.05;
-  const m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
-  switch (item.kind) {
-    case 'tophat':
-      g.add(meshAt(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 16), m(0x111111), 0));
-      g.add(meshAt(new THREE.CylinderGeometry(0.55, 0.55, 1, 16), m(0x111111), 0.55));
-      break;
-    case 'crown': {
-      const band = meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.5, 12), m(item.color), 0.25);
-      g.add(band);
-      for (let i = 0; i < 6; i++) {
-        const sp = meshAt(new THREE.ConeGeometry(0.12, 0.45, 6), m(item.color), 0.6);
-        const a = (i / 6) * Math.PI * 2;
-        sp.position.x = Math.cos(a) * 0.5; sp.position.z = Math.sin(a) * 0.5;
-        g.add(sp);
-      }
-      break;
-    }
-    case 'party':
-      g.add(meshAt(new THREE.ConeGeometry(0.5, 1.2, 16), m(item.color), 0.6));
-      break;
-    case 'beanie':
-      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.16));
-      g.add(meshAt(new THREE.CylinderGeometry(0.6, 0.6, 0.18, 14), m(item.color), 0.04));
-      g.add(meshAt(new THREE.SphereGeometry(0.14, 8, 8), m(item.accent || 0xffffff), 0.82));
-      break;
-    case 'bucket':
-      g.add(meshAt(new THREE.CylinderGeometry(0.55, 0.6, 0.55, 16), m(item.color), 0.3));
-      g.add(meshAt(new THREE.CylinderGeometry(0.85, 0.85, 0.08, 16), m(item.color), 0.04));
-      break;
-    case 'cowboy':
-      g.add(meshAt(new THREE.CylinderGeometry(0.95, 1.0, 0.08, 18), m(item.color), 0.06));
-      g.add(meshAt(new THREE.CylinderGeometry(0.45, 0.55, 0.7, 14), m(item.color), 0.45));
-      break;
-    case 'wizard': {
-      g.add(meshAt(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 18), m(item.color), 0.05));
-      const wcone = meshAt(new THREE.ConeGeometry(0.48, 1.5, 14), m(item.color), 0.85); wcone.rotation.z = 0.12; g.add(wcone);
-      g.add(meshAt(new THREE.OctahedronGeometry(0.13, 0), new THREE.MeshStandardMaterial({ color: item.accent || 0xffd23f, emissive: item.accent || 0xffd23f, emissiveIntensity: 0.6 }), 1.15, 0.12));
-      break;
-    }
-    case 'pirate':
-      g.add(meshAt(new THREE.CylinderGeometry(0.92, 0.98, 0.12, 3), m(item.color), 0.12));
-      g.add(meshAt(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
-      break;
-    case 'viking':
-      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
-      g.add(meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.14, 14), m(item.accent || 0x888888), 0.12));
-      for (const s of [-1, 1]) { const h = meshAt(new THREE.ConeGeometry(0.13, 0.6, 8), m(0xeee4c0), 0.55, s * 0.6); h.rotation.z = s * 0.9; g.add(h); }
-      break;
-    case 'halo': {
-      const ring = meshAt(new THREE.TorusGeometry(0.45, 0.08, 10, 24), new THREE.MeshStandardMaterial({ color: item.color, emissive: item.color, emissiveIntensity: 1 }), 0.95);
-      ring.rotation.x = Math.PI / 2; g.add(ring);
-      break;
-    }
-    case 'horns':
-      for (const s of [-1, 1]) { const h = meshAt(new THREE.ConeGeometry(0.14, 0.5, 8), m(item.color), 0.5, s * 0.35); h.rotation.z = -s * 0.4; g.add(h); }
-      break;
-    case 'catears':
-      for (const s of [-1, 1]) { const e = meshAt(new THREE.ConeGeometry(0.24, 0.42, 4), m(item.color), 0.45, s * 0.34); e.scale.set(1, 1, 0.5); g.add(e); const inr = meshAt(new THREE.ConeGeometry(0.13, 0.26, 4), m(item.accent || 0xff7ec2), 0.45, s * 0.34); inr.scale.set(1, 1, 0.5); inr.position.z = 0.06; g.add(inr); }
-      break;
-    case 'bunny':
-      for (const s of [-1, 1]) { const e = meshAt(new THREE.CylinderGeometry(0.1, 0.14, 0.85, 8), m(item.color), 0.62, s * 0.24); e.rotation.z = s * 0.16; g.add(e); }
-      break;
-    case 'propeller':
-      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
-      g.add(meshAt(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), m(0x333333), 0.52));
-      for (let i = 0; i < 3; i++) { const bl = meshAt(new THREE.BoxGeometry(0.5, 0.04, 0.12), m(item.accent || 0xff3b3b), 0.66); bl.rotation.y = (i / 3) * Math.PI * 2; g.add(bl); }
-      break;
-    case 'headphones': {
-      g.add(meshAt(new THREE.TorusGeometry(0.62, 0.07, 8, 18, Math.PI), m(item.color), 0.42));
-      for (const s of [-1, 1]) { const cup = meshAt(new THREE.CylinderGeometry(0.18, 0.18, 0.2, 14), m(item.accent || 0x222222), 0.0, s * 0.62); cup.rotation.z = Math.PI / 2; g.add(cup); }
-      break;
-    }
-    case 'flower': {
-      const band = meshAt(new THREE.TorusGeometry(0.55, 0.07, 8, 20), m(item.accent || 0x3a8a2a), 0.28); band.rotation.x = Math.PI / 2; g.add(band);
-      for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; const fl = meshAt(new THREE.SphereGeometry(0.14, 8, 8), m(item.color), 0.34, Math.cos(a) * 0.55); fl.position.z = Math.sin(a) * 0.55; g.add(fl); }
-      break;
-    }
-    case 'chef':
-      g.add(meshAt(new THREE.CylinderGeometry(0.45, 0.45, 0.45, 14), m(item.color), 0.32));
-      g.add(meshAt(new THREE.SphereGeometry(0.55, 12, 8), m(item.color), 0.72));
-      break;
-    case 'santa': {
-      g.add(meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.18, 14), m(0xffffff), 0.05));
-      const scone = meshAt(new THREE.ConeGeometry(0.5, 1.1, 14), m(item.color), 0.72); scone.rotation.z = 0.35; scone.position.x = 0.18; g.add(scone);
-      g.add(meshAt(new THREE.SphereGeometry(0.13, 8, 8), m(0xffffff), 1.16, 0.42));
-      break;
-    }
-    case 'mohawk':
-      for (let i = 0; i < 5; i++) { const sp = meshAt(new THREE.ConeGeometry(0.12, 0.5 + (i === 2 ? 0.25 : Math.abs(2 - i) * -0.06), 4), m(item.color), 0.45, 0, -0.4 + i * 0.2); g.add(sp); }
-      break;
-    case 'antenna':
-      for (const s of [-1, 1]) { const stalk = meshAt(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), m(0x333333), 0.5, s * 0.25); stalk.rotation.z = s * 0.25; g.add(stalk); g.add(meshAt(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshStandardMaterial({ color: item.color, emissive: item.color, emissiveIntensity: 0.8 }), 0.8, s * 0.36)); }
-      break;
-    case 'bow':
-      for (const s of [-1, 1]) { const lobe = meshAt(new THREE.ConeGeometry(0.3, 0.42, 4), m(item.color), 0.5, s * 0.26); lobe.rotation.z = s * Math.PI / 2; lobe.scale.set(1, 1, 0.5); g.add(lobe); }
-      g.add(meshAt(new THREE.SphereGeometry(0.13, 8, 8), m(item.accent || item.color), 0.5));
-      break;
-    case 'cap':
-    default:
-      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
-      g.add(meshAt(new THREE.BoxGeometry(0.7, 0.1, 0.5), m(item.color), 0.05, 0, -0.5));
-      break;
-  }
-  return g;
-  function meshAt(geo, mat, y, x = 0, z = 0) { const me = new THREE.Mesh(geo, mat); me.position.set(x, y, z); return me; }
-}
-
 function updatePreviewFrame() {
   if (!preview) return;
   const visible = !startScreen.classList.contains('hidden') ||
@@ -968,4 +1082,4 @@ window.addEventListener('resize', () => {
 });
 
 // expose a couple things for quick debugging in devtools
-window.__game = { state, player, enemies, bossMgr, equipStickById, controls, swing, throwStick, jump, takeDamage, get thrown() { return thrownStick; } };
+window.__game = { state, player, enemies, bossMgr, equipStickById, controls, swing, throwStick, jump, takeDamage, remote, startMultiplayer, localPlayerState, get net() { return net; }, get thrown() { return thrownStick; } };

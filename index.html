@@ -65,6 +65,14 @@
     <div id="boss-sub"></div>
   </div>
 
+  <!-- Multiplayer: connected-players chip + invite link bar -->
+  <div id="friends-hud"></div>
+  <div id="invite-bar">
+    <span class="invite-label">🔗 Invite a friend:</span>
+    <span id="invite-link" class="invite-link"></span>
+    <button id="invite-copy">Copy</button>
+  </div>
+
   <div id="crosshair"></div>
   <div id="throw-cd"></div>
   <div id="fx-layer"></div>
@@ -90,6 +98,7 @@
       <p class="tagline">Bonk everyone. Unlock epic sticks. Flex in the shop.</p>
       <div class="preview-box"><canvas id="preview-canvas"></canvas></div>
       <button id="play-btn">▶ PLAY</button>
+      <button id="friends-btn">👥 Play with Friends</button>
       <div class="controls-hint">
         <span class="desktop-only">WASD move · Space jump · Mouse look · Click/R bonk · Right-click/F throw · B shop</span>
         <span class="mobile-only">Left: move · Right: look · 🪄 swing · 🪃 throw</span>

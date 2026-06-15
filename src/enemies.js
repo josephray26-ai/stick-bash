@@ -106,11 +106,12 @@ export class EnemyManager {
     }
   }
 
-  update(dt, playerPos, onPlayerHit, boss) {
+  // `players` is an array of { id, pos } — NPCs target whoever is nearest (co-op).
+  update(dt, players, onPlayerHit, boss) {
     const half = ARENA.size - 3;
     const bossActive = boss && boss.state === 'active';
     this._bossPos = bossActive ? boss.group.position : null;  // lets the mob pack in tight
-    this.updateProjectiles(dt, playerPos, onPlayerHit);
+    this.updateProjectiles(dt, players, onPlayerHit);
 
     // snapshot how many NPCs are in each zone — used to block moves into full zones
     this._zoneOcc = new Map();
@@ -145,7 +146,11 @@ export class EnemyManager {
       if (e.bossAtkCD > 0) e.bossAtkCD -= dt;
       e.retargetTimer -= dt;
 
-      const distToPlayer = this.tmp.copy(playerPos).sub(g.position).setY(0).length();
+      // nearest player to this NPC (co-op: fight whoever is closest)
+      let _np = players[0], _nd = Infinity;
+      for (const pl of players) { const ax = pl.pos.x - g.position.x, az = pl.pos.z - g.position.z; const d2 = ax * ax + az * az; if (d2 < _nd) { _nd = d2; _np = pl; } }
+      const playerPos = _np.pos, playerId = _np.id;
+      const distToPlayer = Math.sqrt(_nd);
 
       // when a boss is on the map, every fighter (not the pacifists) gangs up on it
       const focusBoss = bossActive && e.personality !== 'passive';
@@ -179,7 +184,7 @@ export class EnemyManager {
               if (d < BOSS_REACH + 1) boss.hit(0.5);   // chip damage — the player does the bulk
             }
           } else if (e.attackPlayer) {
-            if (distToPlayer < ATTACK_RANGE && onPlayerHit) onPlayerHit(e);
+            if (distToPlayer < ATTACK_RANGE && onPlayerHit) onPlayerHit(e, undefined, playerId);
           } else if (e.attackEnemy && e.attackEnemy.state === 'alive') {
             const d = this.tmp.copy(e.attackEnemy.group.position).sub(g.position).setY(0).length();
             if (d < ATTACK_RANGE) this.brawlHit(e.attackEnemy, g.position, e);
@@ -443,7 +448,7 @@ export class EnemyManager {
     if (e.parts.heldStick) e.parts.heldStick.visible = false;
   }
 
-  updateProjectiles(dt, playerPos, onPlayerHit) {
+  updateProjectiles(dt, players, onPlayerHit) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.life += dt;
@@ -453,12 +458,14 @@ export class EnemyManager {
       p.dist += PROJ_SPEED * dt;
 
       let done = false;
-      // hit the player?
-      const dpx = playerPos.x - p.group.position.x;
-      const dpz = playerPos.z - p.group.position.z;
-      if (dpx * dpx + dpz * dpz < PROJ_HIT_R * PROJ_HIT_R) {
-        if (onPlayerHit) onPlayerHit(p.owner);
-        done = true;
+      // hit any player?
+      for (const pl of players) {
+        const dpx = pl.pos.x - p.group.position.x;
+        const dpz = pl.pos.z - p.group.position.z;
+        if (dpx * dpx + dpz * dpz < PROJ_HIT_R * PROJ_HIT_R) {
+          if (onPlayerHit) onPlayerHit(p.owner, undefined, pl.id);
+          done = true; break;
+        }
       }
       // hit another enemy?
       if (!done) {
@@ -536,21 +543,84 @@ export class EnemyManager {
     animateScale(e.group, 1, 0.35);
   }
 
-  // Returns the enemy hit by the player (closest within reach in front), or null
-  tryHit(playerPos, forward, reach = 4.2, arc = 0.6) {
-    let best = null, bestDist = Infinity;
-    for (const e of this.enemies) {
+  // Index of the enemy a player swing would land on (closest within reach, in the
+  // facing cone), or -1. Non-mutating — used by clients to report a hit to the host.
+  pickHitIndex(playerPos, forward, reach = 4.2, arc = 0.6) {
+    let best = -1, bestDist = Infinity;
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
       if (e.state !== 'alive') continue;
       this.tmp.copy(e.group.position).sub(playerPos); this.tmp.y = 0;
       const dist = this.tmp.length();
       if (dist > reach) continue;
       this.tmp.normalize();
-      const dot = this.tmp.dot(forward);
-      if (dot < arc) continue;
-      if (dist < bestDist) { bestDist = dist; best = e; }
+      if (this.tmp.dot(forward) < arc) continue;
+      if (dist < bestDist) { bestDist = dist; best = i; }
     }
-    if (best) this.hit(best, playerPos);
     return best;
+  }
+
+  // Returns the enemy hit by the player (closest within reach in front), or null
+  tryHit(playerPos, forward, reach = 4.2, arc = 0.6) {
+    const i = this.pickHitIndex(playerPos, forward, reach, arc);
+    if (i < 0) return null;
+    this.hit(this.enemies[i], playerPos);
+    return this.enemies[i];
+  }
+
+  // Host applies a hit reported by a client (by enemy index).
+  hitById(i, fromPos) {
+    const e = this.enemies[i];
+    if (!e || e.state !== 'alive') return false;
+    this.hit(e, fromPos || e.group.position);
+    return true;
+  }
+
+  // ---- multiplayer host <-> client sync ----
+  // Compact per-NPC snapshot the host broadcasts: [x, z, heading, state, attacking]
+  serialize() {
+    const out = [];
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i], p = e.group.position;
+      out.push([+p.x.toFixed(2), +p.z.toFixed(2), +e.group.rotation.y.toFixed(2),
+        e.state === 'alive' ? 0 : (e.state === 'dying' ? 1 : 2), e.attacking ? 1 : 0]);
+    }
+    return out;
+  }
+
+  // Client: adopt the host snapshot as movement targets + state.
+  applySnapshot(arr) {
+    if (!arr) return;
+    const E = this.enemies;
+    for (let i = 0; i < arr.length && i < E.length; i++) {
+      const e = E[i], d = arr[i];
+      e.netX = d[0]; e.netZ = d[1]; e.netRy = d[2]; e.netAttacking = d[4] === 1;
+      const ns = d[3] === 0 ? 'alive' : (d[3] === 1 ? 'dying' : 'dead');
+      if (e.state !== ns) {
+        if (ns === 'alive') { e.group.position.set(d[0], 0, d[1]); e.group.rotation.set(0, d[2], 0); e.parts.rightArm.rotation.x = 0; animateScale(e.group, 1, 0.3); }
+        else if (ns === 'dying') { e.deadTime = 0; }
+        else if (ns === 'dead') { e.group.scale.setScalar(0.0001); }
+        e.state = ns;
+      }
+    }
+  }
+
+  // Client: render-only tick — lerp toward host targets, animate, no AI.
+  updateRemote(dt) {
+    const k = Math.min(1, dt * 12);
+    for (const e of this.enemies) {
+      const g = e.group;
+      if (e.state === 'dead') continue;
+      if (e.state === 'dying') { e.deadTime += dt; g.rotation.z += dt * 6; g.position.y += dt * 2; g.scale.multiplyScalar(1 - dt * 2.2); continue; }
+      if (e.netX === undefined) continue;
+      const px = g.position.x, pz = g.position.z;
+      g.position.x += (e.netX - px) * k; g.position.z += (e.netZ - pz) * k; g.position.y = 0;
+      g.rotation.y += angleDelta(g.rotation.y, e.netRy) * k;
+      const moved = Math.hypot(g.position.x - px, g.position.z - pz);
+      if (e.netAttacking) { e.attackTime = (e.attackTime || 0) + dt; const p = Math.min(e.attackTime / 0.4, 1); e.parts.rightArm.rotation.x = -Math.sin(p * Math.PI) * 2.4; }
+      else if (moved > 0.003) { e.attackTime = 0; this.walkAnim(e, dt); }
+      else { e.attackTime = 0; e.parts.rightArm.rotation.x *= 0.8; e.parts.leftArm.rotation.x *= 0.8; e.parts.leftLeg.rotation.x *= 0.8; e.parts.rightLeg.rotation.x *= 0.8; }
+    }
   }
 
   hit(e, fromPos) {
@@ -567,6 +637,13 @@ export class EnemyManager {
   }
 
   get aliveCount() { return this.enemies.filter((e) => e.state === 'alive').length; }
+}
+
+function angleDelta(a, b) {
+  let d = (b - a) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
 }
 
 function animateScale(obj, to, dur) {

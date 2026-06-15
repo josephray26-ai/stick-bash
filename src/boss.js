@@ -261,7 +261,7 @@ class Boss {
       const lim = ARENA.size - 4;
       const hitWall = Math.abs(this.group.position.x) > lim || Math.abs(this.group.position.z) > lim;
       const dx = px - this.group.position.x, dz = pz - this.group.position.z;
-      if (dx * dx + dz * dz < 16 && (player.h || 0) < 2.5) onPlayerHit(this.group.position, this.charge.dmg);
+      if (dx * dx + dz * dz < 16 && (player.h || 0) < 2.5) onPlayerHit(this.group.position, this.charge.dmg, player.id);
       if (hitWall) {
         this.group.position.x = THREE.MathUtils.clamp(this.group.position.x, -lim, lim);
         this.group.position.z = THREE.MathUtils.clamp(this.group.position.z, -lim, lim);
@@ -382,23 +382,72 @@ const ATTACKS = {
 // Manager: 5-minute timer + rotation
 // ---------------------------------------------------------------------------
 export class BossManager {
-  constructor(scene, cb) { this.scene = scene; this.cb = cb; this.timer = BOSS_INTERVAL; this.index = 0; this.boss = null; }
-  update(dt, player, onPlayerHit) {
+  constructor(scene, cb) { this.scene = scene; this.cb = cb; this.timer = BOSS_INTERVAL; this.index = 0; this.boss = null; this._cli = null; }
+
+  // host/solo: `players` is [{ id, pos, h, knock }] — the boss targets the nearest.
+  update(dt, players, onPlayerHit) {
     if (this.boss) {
-      this.boss.update(dt, player, onPlayerHit);
+      const bp = this.boss.group.position;
+      let near = players[0], nd = Infinity;
+      for (const pl of players) { const d = (pl.pos.x - bp.x) ** 2 + (pl.pos.z - bp.z) ** 2; if (d < nd) { nd = d; near = pl; } }
+      this.boss.update(dt, near, onPlayerHit);
       if (this.boss.state === 'dead') this.boss = null;
     } else {
       this.timer -= dt;
       if (this.timer <= 0) this.spawnNext();
     }
   }
+
   spawnNext() {
     const def = BOSS_DEFS[this.index % BOSS_DEFS.length]; this.index++;
     this.timer = BOSS_INTERVAL;
     this.boss = new Boss(this.scene, def, this.cb);
     return this.boss;
   }
-  // remove any active boss + its hazards and reset the countdown (used on Main Menu)
+
+  // ---- multiplayer sync ----
+  // Host snapshot: boss transform + hp/phase, or null when there's no boss.
+  serialize() {
+    const b = this.boss;
+    if (!b || b.state === 'dead') return null;
+    const p = b.group.position;
+    return { d: BOSS_DEFS.indexOf(b.def), x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
+      ry: +b.group.rotation.y.toFixed(2), hp: Math.round(b.hp), mx: b.maxHp, ph: b.phase };
+  }
+
+  // Client: build / update / remove a render-only boss model from the host snapshot.
+  applySnapshot(snap) {
+    if (!snap) {
+      if (this._cli) { this.scene.remove(this._cli.group); this._cli = null; this.cb.onClientDespawn?.(); }
+      return;
+    }
+    if (!this._cli || this._cli.d !== snap.d) {
+      if (this._cli) this.scene.remove(this._cli.group);
+      const def = BOSS_DEFS[snap.d];
+      const g = def.build();
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      g.position.set(snap.x, snap.y, snap.z);
+      this.scene.add(g);
+      this._cli = { d: snap.d, def, group: g };
+      this.cb.onClientSpawn?.(def);
+    }
+    const c = this._cli;
+    c.tx = snap.x; c.ty = snap.y; c.tz = snap.z; c.tr = snap.ry;
+    this.cb.onHpChange(snap.hp, snap.mx, snap.ph);
+  }
+
+  updateRemote(dt) {
+    const c = this._cli; if (!c || c.tx === undefined) return;
+    const k = Math.min(1, dt * 10);
+    c.group.position.x += (c.tx - c.group.position.x) * k;
+    c.group.position.y += (c.ty - c.group.position.y) * k;
+    c.group.position.z += (c.tz - c.group.position.z) * k;
+    let dr = (c.tr - c.group.rotation.y) % (Math.PI * 2);
+    if (dr > Math.PI) dr -= Math.PI * 2; if (dr < -Math.PI) dr += Math.PI * 2;
+    c.group.rotation.y += dr * k;
+  }
+
+  // remove any active boss (host or client) + hazards and reset the countdown
   clear() {
     if (this.boss) {
       for (const h of this.boss.hazards) h.finish();
@@ -406,7 +455,11 @@ export class BossManager {
       this.scene.remove(this.boss.group);
       this.boss = null;
     }
+    if (this._cli) { this.scene.remove(this._cli.group); this._cli = null; }
     this.timer = BOSS_INTERVAL;
   }
-  get active() { return this.boss && this.boss.state !== 'dead'; }
+
+  // position of whichever boss model exists (host's live boss or client's mirror)
+  get pos() { return this.boss ? this.boss.group.position : (this._cli ? this._cli.group.position : null); }
+  get active() { return (this.boss && this.boss.state !== 'dead') || !!this._cli; }
 }

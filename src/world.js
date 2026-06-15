@@ -196,6 +196,118 @@ export function createCharacter({ body = 0xffcf6e, shirt = 0x3aa0ff, pants = 0x3
   return g;
 }
 
+// Cosmetic hat builder — authored for the character scale (head top ~y4), so it can
+// be added directly to a createCharacter() group (locker preview AND remote players).
+export function makeHat(item) {
+  const g = new THREE.Group();
+  g.position.y = 4.05;
+  const m = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+  switch (item.kind) {
+    case 'tophat':
+      g.add(meshAt(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 16), m(0x111111), 0));
+      g.add(meshAt(new THREE.CylinderGeometry(0.55, 0.55, 1, 16), m(0x111111), 0.55));
+      break;
+    case 'crown': {
+      const band = meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.5, 12), m(item.color), 0.25);
+      g.add(band);
+      for (let i = 0; i < 6; i++) {
+        const sp = meshAt(new THREE.ConeGeometry(0.12, 0.45, 6), m(item.color), 0.6);
+        const a = (i / 6) * Math.PI * 2;
+        sp.position.x = Math.cos(a) * 0.5; sp.position.z = Math.sin(a) * 0.5;
+        g.add(sp);
+      }
+      break;
+    }
+    case 'party':
+      g.add(meshAt(new THREE.ConeGeometry(0.5, 1.2, 16), m(item.color), 0.6));
+      break;
+    case 'beanie':
+      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.16));
+      g.add(meshAt(new THREE.CylinderGeometry(0.6, 0.6, 0.18, 14), m(item.color), 0.04));
+      g.add(meshAt(new THREE.SphereGeometry(0.14, 8, 8), m(item.accent || 0xffffff), 0.82));
+      break;
+    case 'bucket':
+      g.add(meshAt(new THREE.CylinderGeometry(0.55, 0.6, 0.55, 16), m(item.color), 0.3));
+      g.add(meshAt(new THREE.CylinderGeometry(0.85, 0.85, 0.08, 16), m(item.color), 0.04));
+      break;
+    case 'cowboy':
+      g.add(meshAt(new THREE.CylinderGeometry(0.95, 1.0, 0.08, 18), m(item.color), 0.06));
+      g.add(meshAt(new THREE.CylinderGeometry(0.45, 0.55, 0.7, 14), m(item.color), 0.45));
+      break;
+    case 'wizard': {
+      g.add(meshAt(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 18), m(item.color), 0.05));
+      const wcone = meshAt(new THREE.ConeGeometry(0.48, 1.5, 14), m(item.color), 0.85); wcone.rotation.z = 0.12; g.add(wcone);
+      g.add(meshAt(new THREE.OctahedronGeometry(0.13, 0), new THREE.MeshStandardMaterial({ color: item.accent || 0xffd23f, emissive: item.accent || 0xffd23f, emissiveIntensity: 0.6 }), 1.15, 0.12));
+      break;
+    }
+    case 'pirate':
+      g.add(meshAt(new THREE.CylinderGeometry(0.92, 0.98, 0.12, 3), m(item.color), 0.12));
+      g.add(meshAt(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
+      break;
+    case 'viking':
+      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
+      g.add(meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.14, 14), m(item.accent || 0x888888), 0.12));
+      for (const s of [-1, 1]) { const h = meshAt(new THREE.ConeGeometry(0.13, 0.6, 8), m(0xeee4c0), 0.55, s * 0.6); h.rotation.z = s * 0.9; g.add(h); }
+      break;
+    case 'halo': {
+      const ring = meshAt(new THREE.TorusGeometry(0.45, 0.08, 10, 24), new THREE.MeshStandardMaterial({ color: item.color, emissive: item.color, emissiveIntensity: 1 }), 0.95);
+      ring.rotation.x = Math.PI / 2; g.add(ring);
+      break;
+    }
+    case 'horns':
+      for (const s of [-1, 1]) { const h = meshAt(new THREE.ConeGeometry(0.14, 0.5, 8), m(item.color), 0.5, s * 0.35); h.rotation.z = -s * 0.4; g.add(h); }
+      break;
+    case 'catears':
+      for (const s of [-1, 1]) { const e = meshAt(new THREE.ConeGeometry(0.24, 0.42, 4), m(item.color), 0.45, s * 0.34); e.scale.set(1, 1, 0.5); g.add(e); const inr = meshAt(new THREE.ConeGeometry(0.13, 0.26, 4), m(item.accent || 0xff7ec2), 0.45, s * 0.34); inr.scale.set(1, 1, 0.5); inr.position.z = 0.06; g.add(inr); }
+      break;
+    case 'bunny':
+      for (const s of [-1, 1]) { const e = meshAt(new THREE.CylinderGeometry(0.1, 0.14, 0.85, 8), m(item.color), 0.62, s * 0.24); e.rotation.z = s * 0.16; g.add(e); }
+      break;
+    case 'propeller':
+      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
+      g.add(meshAt(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), m(0x333333), 0.52));
+      for (let i = 0; i < 3; i++) { const bl = meshAt(new THREE.BoxGeometry(0.5, 0.04, 0.12), m(item.accent || 0xff3b3b), 0.66); bl.rotation.y = (i / 3) * Math.PI * 2; g.add(bl); }
+      break;
+    case 'headphones': {
+      g.add(meshAt(new THREE.TorusGeometry(0.62, 0.07, 8, 18, Math.PI), m(item.color), 0.42));
+      for (const s of [-1, 1]) { const cup = meshAt(new THREE.CylinderGeometry(0.18, 0.18, 0.2, 14), m(item.accent || 0x222222), 0.0, s * 0.62); cup.rotation.z = Math.PI / 2; g.add(cup); }
+      break;
+    }
+    case 'flower': {
+      const band = meshAt(new THREE.TorusGeometry(0.55, 0.07, 8, 20), m(item.accent || 0x3a8a2a), 0.28); band.rotation.x = Math.PI / 2; g.add(band);
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; const fl = meshAt(new THREE.SphereGeometry(0.14, 8, 8), m(item.color), 0.34, Math.cos(a) * 0.55); fl.position.z = Math.sin(a) * 0.55; g.add(fl); }
+      break;
+    }
+    case 'chef':
+      g.add(meshAt(new THREE.CylinderGeometry(0.45, 0.45, 0.45, 14), m(item.color), 0.32));
+      g.add(meshAt(new THREE.SphereGeometry(0.55, 12, 8), m(item.color), 0.72));
+      break;
+    case 'santa': {
+      g.add(meshAt(new THREE.CylinderGeometry(0.62, 0.62, 0.18, 14), m(0xffffff), 0.05));
+      const scone = meshAt(new THREE.ConeGeometry(0.5, 1.1, 14), m(item.color), 0.72); scone.rotation.z = 0.35; scone.position.x = 0.18; g.add(scone);
+      g.add(meshAt(new THREE.SphereGeometry(0.13, 8, 8), m(0xffffff), 1.16, 0.42));
+      break;
+    }
+    case 'mohawk':
+      for (let i = 0; i < 5; i++) { const sp = meshAt(new THREE.ConeGeometry(0.12, 0.5 + (i === 2 ? 0.25 : Math.abs(2 - i) * -0.06), 4), m(item.color), 0.45, 0, -0.4 + i * 0.2); g.add(sp); }
+      break;
+    case 'antenna':
+      for (const s of [-1, 1]) { const stalk = meshAt(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), m(0x333333), 0.5, s * 0.25); stalk.rotation.z = s * 0.25; g.add(stalk); g.add(meshAt(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshStandardMaterial({ color: item.color, emissive: item.color, emissiveIntensity: 0.8 }), 0.8, s * 0.36)); }
+      break;
+    case 'bow':
+      for (const s of [-1, 1]) { const lobe = meshAt(new THREE.ConeGeometry(0.3, 0.42, 4), m(item.color), 0.5, s * 0.26); lobe.rotation.z = s * Math.PI / 2; lobe.scale.set(1, 1, 0.5); g.add(lobe); }
+      g.add(meshAt(new THREE.SphereGeometry(0.13, 8, 8), m(item.accent || item.color), 0.5));
+      break;
+    case 'cap':
+    default:
+      g.add(meshAt(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(item.color), 0.1));
+      g.add(meshAt(new THREE.BoxGeometry(0.7, 0.1, 0.5), m(item.color), 0.05, 0, -0.5));
+      break;
+  }
+  return g;
+  function meshAt(geo, mat, y, x = 0, z = 0) { const me = new THREE.Mesh(geo, mat); me.position.set(x, y, z); return me; }
+}
+
 // A stick scaled + posed to sit in a character's right hand (no point light — there
 // can be many enemies on screen, so we keep their sticks light-free for performance).
 export function buildHeldStick(skin) {
