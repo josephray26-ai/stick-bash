@@ -6,7 +6,9 @@
 // There is no server: peers connect browser-to-browser; free public relays are
 // used only for the initial handshake. See plan: free, host-authoritative co-op.
 // ---------------------------------------------------------------------------
-import { joinRoom, selfId } from 'https://esm.sh/trystero/torrent';
+// NOTE: the old `trystero` package was renamed to `@trystero-p2p`; the old
+// path is now an empty deprecation stub (exports nothing), so we use the new one.
+import { joinRoom, selfId } from 'https://esm.sh/@trystero-p2p/torrent@0.25.2';
 
 const APP_ID = 'stickbash_coop_v1';
 
@@ -41,17 +43,19 @@ export const net = {
     this.roomId = roomId;
     room = joinRoom({ appId: APP_ID }, roomId);
 
-    const [sendSt, getSt] = room.makeAction('st');   // per-player transform/cosmetics
-    const [sendWd, getWd] = room.makeAction('wd');    // host world snapshot (NPCs/boss)
-    const [sendEv, getEv] = room.makeAction('ev');    // discrete events (combat etc.)
-    _send = { st: sendSt, wd: sendWd, ev: sendEv };
+    // @trystero-p2p makeAction returns { send, onMessage, onReceiveProgress }, where
+    // onMessage is an ASSIGNABLE accessor (action.onMessage = handler), not a call.
+    const st = room.makeAction('st');   // per-player transform/cosmetics
+    const wd = room.makeAction('wd');    // host world snapshot (NPCs/boss)
+    const ev = room.makeAction('ev');    // discrete events (combat etc.)
+    _send = { st: st.send, wd: wd.send, ev: ev.send };
 
-    getSt((data, peer) => { _lastState.set(peer, data); _cbs.player(peer, data); });
-    getWd((data, peer) => _cbs.world(peer, data));
-    getEv((data, peer) => _cbs.event(peer, data));
+    st.onMessage = (data, peer) => { _lastState.set(peer, data); _cbs.player(peer, data); };
+    wd.onMessage = (data, peer) => _cbs.world(peer, data);
+    ev.onMessage = (data, peer) => _cbs.event(peer, data);
 
-    room.onPeerJoin((id) => { _peers.add(id); recomputeHost(); _cbs.peerjoin(id); });
-    room.onPeerLeave((id) => { _peers.delete(id); _lastState.delete(id); recomputeHost(); _cbs.peerleave(id); });
+    room.onPeerJoin = (id) => { _peers.add(id); recomputeHost(); _cbs.peerjoin(id); };
+    room.onPeerLeave = (id) => { _peers.delete(id); _lastState.delete(id); recomputeHost(); _cbs.peerleave(id); };
 
     recomputeHost();
     this.connected = true;
