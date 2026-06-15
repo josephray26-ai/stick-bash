@@ -106,6 +106,66 @@ export const SHOP_ITEMS = [
   { id: 'body_lime', cat: 'Skins', name: 'Lime Body', price: 150, color: 0x9be35a, kind: 'body', emoji: '🟢' },
   { id: 'body_pink', cat: 'Skins', name: 'Bubblegum Body', price: 150, color: 0xff7ec2, kind: 'body', emoji: '🩷' },
   { id: 'body_robot', cat: 'Skins', name: 'Robot Body', price: 700, color: 0x9aa7b3, kind: 'body', emoji: '🤖' },
+
+  // ============================================================
+  // 50 new shop items (Fortnite-item-shop inspired) — varied prices
+  // ============================================================
+
+  // ---- 18 new Hats ----
+  { id: 'hat_beanie', cat: 'Hats', name: 'Cozy Beanie', price: 180, color: 0x4db1ff, accent: 0xffffff, kind: 'beanie', emoji: '🧶' },
+  { id: 'hat_bucket', cat: 'Hats', name: 'Bucket Hat', price: 220, color: 0x9be35a, kind: 'bucket', emoji: '🪣' },
+  { id: 'hat_chef', cat: 'Hats', name: "Chef's Toque", price: 300, color: 0xffffff, kind: 'chef', emoji: '👨‍🍳' },
+  { id: 'hat_bow', cat: 'Hats', name: 'Big Bow', price: 300, color: 0xff4d6d, accent: 0xffffff, kind: 'bow', emoji: '🎀' },
+  { id: 'hat_catears', cat: 'Hats', name: 'Cat Ears', price: 350, color: 0x2b2b3a, accent: 0xff7ec2, kind: 'catears', emoji: '🐱' },
+  { id: 'hat_bunny', cat: 'Hats', name: 'Bunny Ears', price: 350, color: 0xffffff, accent: 0xffc0cb, kind: 'bunny', emoji: '🐰' },
+  { id: 'hat_flower', cat: 'Hats', name: 'Flower Crown', price: 400, color: 0xff7ec2, accent: 0x3a8a2a, kind: 'flower', emoji: '🌸' },
+  { id: 'hat_cowboy', cat: 'Hats', name: 'Cowpoke Hat', price: 400, color: 0xb5793c, kind: 'cowboy', emoji: '🤠' },
+  { id: 'hat_santa', cat: 'Hats', name: 'Santa Hat', price: 400, color: 0xd23b3b, kind: 'santa', emoji: '🎅' },
+  { id: 'hat_propeller', cat: 'Hats', name: 'Propeller Cap', price: 450, color: 0x4db1ff, accent: 0xff3b3b, kind: 'propeller', emoji: '🚁' },
+  { id: 'hat_pirate', cat: 'Hats', name: 'Pirate Tricorn', price: 500, color: 0x2b2b3a, kind: 'pirate', emoji: '🏴‍☠️' },
+  { id: 'hat_headphones', cat: 'Hats', name: 'Gamer Headset', price: 500, color: 0x39ff14, accent: 0x222222, kind: 'headphones', emoji: '🎧' },
+  { id: 'hat_mohawk', cat: 'Hats', name: 'Punk Mohawk', price: 550, color: 0x39ff14, kind: 'mohawk', emoji: '🎸' },
+  { id: 'hat_horns', cat: 'Hats', name: 'Devil Horns', price: 600, color: 0xd23b3b, kind: 'horns', emoji: '😈' },
+  { id: 'hat_antenna', cat: 'Hats', name: 'Alien Antennae', price: 600, color: 0x9be35a, kind: 'antenna', emoji: '👽' },
+  { id: 'hat_wizard', cat: 'Hats', name: 'Wizard Hat', price: 650, color: 0x6a3fb0, accent: 0xffd23f, kind: 'wizard', emoji: '🧙' },
+  { id: 'hat_viking', cat: 'Hats', name: 'Viking Helm', price: 700, color: 0x8a8f99, accent: 0xc9913f, kind: 'viking', emoji: '🪖' },
+  { id: 'hat_halo', cat: 'Hats', name: 'Angel Halo', price: 900, color: 0xfff1a8, kind: 'halo', emoji: '😇' },
+
+  // ---- 16 new Auras ----
+  { id: 'aura_toxic', cat: 'Auras', name: 'Toxic Aura', price: 400, color: 0x39ff14, kind: 'aura', emoji: '☢️' },
+  { id: 'aura_lime', cat: 'Auras', name: 'Clover Aura', price: 400, color: 0x9be35a, kind: 'aura', emoji: '🍀' },
+  { id: 'aura_rose', cat: 'Auras', name: 'Rose Aura', price: 450, color: 0xff4d8d, kind: 'aura', emoji: '🌹' },
+  { id: 'aura_ocean', cat: 'Auras', name: 'Ocean Aura', price: 500, color: 0x2fd0d0, kind: 'aura', emoji: '🌊' },
+  { id: 'aura_sunset', cat: 'Auras', name: 'Sunset Aura', price: 550, color: 0xff8a3b, kind: 'aura', emoji: '🌇' },
+  { id: 'aura_magma', cat: 'Auras', name: 'Magma Aura', price: 600, color: 0xff3b00, kind: 'aura', emoji: '🌋' },
+  { id: 'aura_blizzard', cat: 'Auras', name: 'Blizzard Aura', price: 600, color: 0x66ccff, kind: 'aura', emoji: '🌨️' },
+  { id: 'aura_crimson', cat: 'Auras', name: 'Crimson Aura', price: 650, color: 0xb02030, kind: 'aura', emoji: '🩸' },
+  { id: 'aura_emerald', cat: 'Auras', name: 'Emerald Aura', price: 700, color: 0x33d17a, kind: 'aura', emoji: '💚' },
+  { id: 'aura_storm', cat: 'Auras', name: 'Storm Aura', price: 700, color: 0xfff66b, kind: 'aura', emoji: '⚡' },
+  { id: 'aura_neon', cat: 'Auras', name: 'Neon Aura', price: 800, color: 0xff2db8, kind: 'aura', emoji: '💖' },
+  { id: 'aura_shadow', cat: 'Auras', name: 'Shadow Aura', price: 900, color: 0x4a2b6b, kind: 'aura', emoji: '🌑' },
+  { id: 'aura_holy', cat: 'Auras', name: 'Holy Aura', price: 1000, color: 0xfff1a8, kind: 'aura', emoji: '🕊️' },
+  { id: 'aura_royal', cat: 'Auras', name: 'Royal Aura', price: 1100, color: 0x2f6fed, kind: 'aura', emoji: '🔷' },
+  { id: 'aura_golden', cat: 'Auras', name: 'Golden Aura', price: 1200, color: 0xffd23f, kind: 'aura', emoji: '✨' },
+  { id: 'aura_galaxy', cat: 'Auras', name: 'Galaxy Aura', price: 1500, color: 0x7a3cff, kind: 'aura', emoji: '🌌' },
+
+  // ---- 16 new Body skins ----
+  { id: 'body_choco', cat: 'Skins', name: 'Chocolate Body', price: 250, color: 0x6b3a2a, kind: 'body', emoji: '🍫' },
+  { id: 'body_crimson', cat: 'Skins', name: 'Crimson Body', price: 300, color: 0xd23b3b, kind: 'body', emoji: '🔴' },
+  { id: 'body_aqua', cat: 'Skins', name: 'Aqua Body', price: 300, color: 0x2fd0d0, kind: 'body', emoji: '🩵' },
+  { id: 'body_violet', cat: 'Skins', name: 'Violet Body', price: 300, color: 0x9b5de5, kind: 'body', emoji: '🟣' },
+  { id: 'body_mint', cat: 'Skins', name: 'Mint Body', price: 300, color: 0x9be3c0, kind: 'body', emoji: '🌿' },
+  { id: 'body_rose', cat: 'Skins', name: 'Rosé Body', price: 300, color: 0xff5a8a, kind: 'body', emoji: '🌷' },
+  { id: 'body_sky', cat: 'Skins', name: 'Sky Body', price: 300, color: 0x7ec8ff, kind: 'body', emoji: '🔵' },
+  { id: 'body_coral', cat: 'Skins', name: 'Coral Body', price: 300, color: 0xff6a5a, kind: 'body', emoji: '🪸' },
+  { id: 'body_snow', cat: 'Skins', name: 'Snow Body', price: 350, color: 0xeef2f7, kind: 'body', emoji: '⚪' },
+  { id: 'body_sunburst', cat: 'Skins', name: 'Sunburst Body', price: 350, color: 0xff8a3b, kind: 'body', emoji: '🟠' },
+  { id: 'body_emerald', cat: 'Skins', name: 'Emerald Body', price: 400, color: 0x33d17a, kind: 'body', emoji: '💚' },
+  { id: 'body_neon', cat: 'Skins', name: 'Neon Body', price: 700, color: 0x39ff14, kind: 'body', emoji: '🟢' },
+  { id: 'body_obsidian', cat: 'Skins', name: 'Obsidian Body', price: 800, color: 0x2b2b3a, kind: 'body', emoji: '⬛' },
+  { id: 'body_void', cat: 'Skins', name: 'Void Body', price: 900, color: 0x1a1030, kind: 'body', emoji: '🕳️' },
+  { id: 'body_galaxy', cat: 'Skins', name: 'Galaxy Body', price: 1200, color: 0x7a3cff, kind: 'body', emoji: '🌌' },
+  { id: 'body_golden', cat: 'Skins', name: 'Golden Body', price: 1500, color: 0xffd23f, kind: 'body', emoji: '🟡' },
 ];
 
 export const COINS_PER_HIT = 6;
