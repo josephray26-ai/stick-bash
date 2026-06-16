@@ -981,7 +981,10 @@ function animate() {
     updateAbilities(dt);
     updateThrow(dt);
     updateThrowCooldownUI(dt);
-    if (mpActive()) { remote.update(dt); netTick(dt); if (net.isHost) worldTick(dt); }
+    if (mpActive()) {
+      for (const id of net.prunePlayers()) remote.remove(id);   // drop players who left
+      remote.update(dt); netTick(dt); if (net.isHost) worldTick(dt);
+    }
   }
 
   // combo decay

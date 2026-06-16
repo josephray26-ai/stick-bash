@@ -50,7 +50,15 @@ export const net = {
     const ev = room.makeAction('ev');    // discrete events (combat etc.)
     _send = { st: st.send, wd: wd.send, ev: ev.send };
 
-    st.onMessage = (data, peer) => { _lastState.set(peer, data); _cbs.player(peer, data); };
+    // Key player state by the sender's OWN id stamped into the payload (_id), not by
+    // the transport's `peer` arg — that arg isn't a stable per-sender key here, which
+    // otherwise makes every message look like a new player (avatars pile up forever).
+    st.onMessage = (data, peer) => {
+      const id = (data && data._id) || peer;
+      if (data) data._t = performance.now();
+      _lastState.set(id, data);
+      _cbs.player(id, data);
+    };
     wd.onMessage = (data, peer) => _cbs.world(peer, data);
     ev.onMessage = (data, peer) => _cbs.event(peer, data);
 
@@ -61,8 +69,17 @@ export const net = {
     this.connected = true;
   },
 
-  // each peer broadcasts its own player state (transform + cosmetics)
-  sendPlayer(data) { if (_send.st) _send.st(data); },
+  // each peer broadcasts its own player state (transform + cosmetics), stamped
+  // with our stable id so receivers can key by sender reliably
+  sendPlayer(data) { if (_send.st) _send.st({ ...data, _id: selfId }); },
+
+  // drop players we haven't heard from in `maxAge` ms (left / timed out).
+  // returns the removed ids so callers can tear down their avatars.
+  prunePlayers(maxAge = 3000) {
+    const now = performance.now(); const gone = [];
+    for (const [id, d] of _lastState) if (now - (d._t || 0) > maxAge) { _lastState.delete(id); gone.push(id); }
+    return gone;
+  },
   // host broadcasts the authoritative world snapshot
   sendWorld(data) { if (_send.wd) _send.wd(data); },
   // discrete event; `target` (a peerId or array) optional — omit to broadcast

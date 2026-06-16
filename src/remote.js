@@ -42,6 +42,7 @@ export function upsert(peerId, st) {
   }
 
   a.tx = st.x; a.tz = st.z; a.th = st.h || 0; a.tyaw = faceYaw(st.yaw); a.hp = st.hp;
+  a.lastSeen = performance.now();
   if (st.act === 'swing' && a.lastAct !== 'swing') a.swingT = 0.3;
   a.lastAct = st.act;
 }
@@ -58,6 +59,12 @@ export function count() { return avatars.size; }
 
 export function update(dt) {
   const k = Math.min(1, dt * 12);
+  // garbage-collect avatars we've stopped hearing from (left / timed out) so
+  // stragglers can never accumulate
+  const now = performance.now();
+  for (const [id, a] of avatars) {
+    if (now - (a.lastSeen || 0) > 3000) { if (scene) scene.remove(a.group); avatars.delete(id); }
+  }
   for (const a of avatars.values()) {
     if (a.tx === undefined) continue;
     const px = a.group.position.x, pz = a.group.position.z;
