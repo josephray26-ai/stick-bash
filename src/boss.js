@@ -6,7 +6,8 @@ const gsap = window.gsap;
 // NPCs pop in over ~0.35s; the boss drop is 3x slower.
 const NPC_DROP = 0.35;
 const BOSS_DROP_DUR = NPC_DROP * 3;
-export const BOSS_INTERVAL = 150; // seconds of game time between bosses (2.5 min)
+export const BOSS_FIRST_DELAY = 60;  // first boss drops 1 min after the player spawns in
+export const BOSS_INTERVAL = 120;    // every boss after that is 2 min apart
 const NO_HIT = () => {};          // hazards are visual; damage is delivered map-wide
 
 const bmat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, ...o });
@@ -190,10 +191,10 @@ class Hazard {
 // Boss instance
 // ---------------------------------------------------------------------------
 class Boss {
-  constructor(scene, def, cb) {
+  constructor(scene, def, cb, dropX = 0, dropZ = 0) {
     this.scene = scene; this.def = def; this.cb = cb;
     this.group = def.build();
-    this.group.position.set(0, 40, 0);
+    this.group.position.set(dropX, 40, dropZ);
     this.group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     scene.add(this.group);
     this.maxHp = def.hp; this.hp = def.hp;
@@ -289,7 +290,7 @@ class Boss {
     this.attacking = 1.0;
     this[name] ? this[name](player) : this.genericSlam(player);
     // the attack's damage lands on everyone ~0.7s later (after the telegraph), no matter where they are
-    this.pendingStrike = { t: 0.7, dmg: this.phase === 2 ? 18 : 13 };
+    this.pendingStrike = { t: 0.7, dmg: this.phase === 2 ? 36 : 26 };
   }
 
   spawnHazard(kind, p) { p.color = p.color ?? this.def.color; this.hazards.push(new Hazard(this.scene, kind, p)); }
@@ -304,7 +305,7 @@ class Boss {
   tailQuake() { const t = this.group.userData.parts.tail; if (t && gsap) gsap.fromTo(t.rotation, { x: 0 }, { x: 0.8, duration: 0.18, yoyo: true, repeat: 1 }); this.spawnHazard('ring', { x: this.group.position.x, z: this.group.position.z, maxR: 26, dur: 1.3, dmg: 18, color: 0xff7a2a }); this.cb.onShake(0.5); }
   fireRain(player) { for (let i = 0; i < 6; i++) this.spawnHazard('fall', { x: player.pos.x + (Math.random() - 0.5) * 16, z: player.pos.z + (Math.random() - 0.5) * 16, r: 2.6, warn: 0.8, dmg: 16, color: 0xff5a1f }); }
 
-  charge_(player) { const dx = player.pos.x - this.group.position.x, dz = player.pos.z - this.group.position.z; const d = Math.hypot(dx, dz) || 1; this.charge = { x: dx / d, z: dz / d, spd: 26, dmg: 24, stunsOnWall: true }; this.invincible = true; this.attacking = 2.5; }
+  charge_(player) { const dx = player.pos.x - this.group.position.x, dz = player.pos.z - this.group.position.z; const d = Math.hypot(dx, dz) || 1; this.charge = { x: dx / d, z: dz / d, spd: 26, dmg: 48, stunsOnWall: true }; this.invincible = true; this.attacking = 2.5; }
   frillSlam() { this.spawnHazard('ring', { x: this.group.position.x, z: this.group.position.z, maxR: 9, dur: 0.5, dmg: 14, color: 0xc9913f }); this.cb.onShake(0.3); }
   pillars(player) { for (let i = 0; i < 5; i++) { const a = Math.random() * 6.28, r = 3 + Math.random() * 8; this.spawnHazard('pillar', { x: player.pos.x + Math.cos(a) * r, z: player.pos.z + Math.sin(a) * r, r: 2, warn: 0.7, dmg: 18, color: 0x8a8a8a }); } }
 
@@ -330,7 +331,7 @@ class Boss {
   whirlpool(player) { for (let i = 0; i < 3; i++) { const a = (i / 3) * 6.28; this.spawnHazard('vortex', { x: player.pos.x + Math.cos(a) * 9, z: player.pos.z + Math.sin(a) * 9, r: 3, dur: 3, pull: 0.5, dmg: 14, color: 0x2fd0d0 }); } }
 
   tailSmash() { const t = this.group.userData.parts.tail; if (t && gsap) gsap.fromTo(t.rotation, { y: -1.2 }, { y: 1.2, duration: 0.5, ease: 'power2.in' }); const p = this.inFront(5); this.spawnHazard('circle', { x: p.x, z: p.z, r: 6, warn: 0.8, active: 0.4, dmg: 26, color: 0x8a8a8a }); this.cb.onShake(0.4); }
-  crystalShell(player) { const dx = player.pos.x - this.group.position.x, dz = player.pos.z - this.group.position.z; const d = Math.hypot(dx, dz) || 1; this.invincible = true; this.charge = { x: dx / d, z: dz / d, spd: 18, dmg: 20, stunsOnWall: false }; this.attacking = 3; setTimeout(() => { this.charge = null; this.invincible = false; this.stun = 1.5; }, 3000); }
+  crystalShell(player) { const dx = player.pos.x - this.group.position.x, dz = player.pos.z - this.group.position.z; const d = Math.hypot(dx, dz) || 1; this.invincible = true; this.charge = { x: dx / d, z: dz / d, spd: 18, dmg: 40, stunsOnWall: false }; this.attacking = 3; setTimeout(() => { this.charge = null; this.invincible = false; this.stun = 1.5; }, 3000); }
   boulders(player) { for (let i = 0; i < 6; i++) this.spawnHazard('fall', { x: player.pos.x + (Math.random() - 0.5) * 18, z: player.pos.z + (Math.random() - 0.5) * 18, r: 2.6, warn: 0.9, dmg: 18, rock: true, color: 0x8a8a8a }); }
   genericSlam(player) { const p = this.inFront(5); this.spawnHazard('circle', { x: p.x, z: p.z, r: 4, warn: 0.7, active: 0.5, dmg: 18 }); }
 
@@ -382,7 +383,7 @@ const ATTACKS = {
 // Manager: 5-minute timer + rotation
 // ---------------------------------------------------------------------------
 export class BossManager {
-  constructor(scene, cb) { this.scene = scene; this.cb = cb; this.timer = BOSS_INTERVAL; this.index = 0; this.boss = null; this._cli = null; }
+  constructor(scene, cb) { this.scene = scene; this.cb = cb; this.timer = BOSS_FIRST_DELAY; this.index = 0; this.boss = null; this._cli = null; }
 
   // host/solo: `players` is [{ id, pos, h, knock }] — the boss targets the nearest.
   update(dt, players, onPlayerHit) {
@@ -394,14 +395,24 @@ export class BossManager {
       if (this.boss.state === 'dead') this.boss = null;
     } else {
       this.timer -= dt;
-      if (this.timer <= 0) this.spawnNext();
+      if (this.timer <= 0) {
+        // drop the boss right next to a player so it's immediately visible, not at the
+        // far-off world origin (the arena is large and players roam well away from it)
+        const p = (players && players[0] && players[0].pos) || { x: 0, z: 0 };
+        let dx = -p.x, dz = -p.z; const d = Math.hypot(dx, dz);
+        if (d < 0.001) { dx = 1; dz = 0; } else { dx /= d; dz /= d; }   // bias toward arena centre so it stays in bounds
+        const lim = ARENA.size - 8;
+        const sx = THREE.MathUtils.clamp(p.x + dx * 10, -lim, lim);
+        const sz = THREE.MathUtils.clamp(p.z + dz * 10, -lim, lim);
+        this.spawnNext(sx, sz);
+      }
     }
   }
 
-  spawnNext() {
+  spawnNext(dropX = 0, dropZ = 0) {
     const def = BOSS_DEFS[this.index % BOSS_DEFS.length]; this.index++;
     this.timer = BOSS_INTERVAL;
-    this.boss = new Boss(this.scene, def, this.cb);
+    this.boss = new Boss(this.scene, def, this.cb, dropX, dropZ);
     return this.boss;
   }
 
@@ -456,7 +467,7 @@ export class BossManager {
       this.boss = null;
     }
     if (this._cli) { this.scene.remove(this._cli.group); this._cli = null; }
-    this.timer = BOSS_INTERVAL;
+    this.timer = BOSS_FIRST_DELAY;
   }
 
   // position of whichever boss model exists (host's live boss or client's mirror)
