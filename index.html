@@ -123,7 +123,17 @@
       <button class="shop-tab" data-cat="Sticks">🪄 Sticks</button>
       <button class="shop-tab" data-cat="Skins">🎨 Body</button>
     </div>
-    <div id="shop-grid" class="grid"></div>
+    <div class="view-toggle" data-target="shop-panel">
+      <button class="vt-btn active" data-view="items">🛒 Items</button>
+      <button class="vt-btn" data-view="char">🧍 Character</button>
+    </div>
+    <div class="panel-body">
+      <div class="preview-pane">
+        <canvas id="shop-preview"></canvas>
+        <div class="preview-cap" id="shop-preview-cap">Tap an item to try it on</div>
+      </div>
+      <div id="shop-grid" class="grid"></div>
+    </div>
     <div class="panel-foot">
       <button id="reset-btn" class="ghost-btn">Reset progress</button>
     </div>
@@ -135,7 +145,17 @@
       <button class="panel-close">✕</button>
     </div>
     <p class="panel-note">Land hits to unlock new sticks. Equip your favorite!</p>
-    <div id="skins-grid" class="grid"></div>
+    <div class="view-toggle" data-target="skins-panel">
+      <button class="vt-btn active" data-view="items">🪄 Sticks</button>
+      <button class="vt-btn" data-view="char">🧍 Character</button>
+    </div>
+    <div class="panel-body">
+      <div class="preview-pane">
+        <canvas id="skins-preview"></canvas>
+        <div class="preview-cap" id="skins-preview-cap">Tap a stick to try it</div>
+      </div>
+      <div id="skins-grid" class="grid"></div>
+    </div>
   </div>
 
   <div id="pause-panel" class="panel">

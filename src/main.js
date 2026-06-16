@@ -11,8 +11,8 @@ import { sfx, unlockAudio, setMuted, isMuted } from './audio.js';
 
 const gsap = window.gsap;
 
-// 3D avatar preview (start screen / locker) — declared early to avoid TDZ
-let preview = null;
+// 3D avatar previews (start screen + shop/sticks try-on), keyed by canvas id — declared early to avoid TDZ
+const previews = {};
 
 // ---------------------------------------------------------------------------
 // Renderer + camera
@@ -615,6 +615,7 @@ UI.initUI({
       UI.updateHUD();
       UI.refreshPanels();
       applyCosmetics();
+      refreshPreview('shop-preview', { item });   // keep showing the just-bought item
     } else {
       sfx.deny();
       UI.toast('Not enough coins! Go bonk more people 🪙', 'bad');
@@ -626,12 +627,27 @@ UI.initUI({
     sfx.buy();
     applyCosmetics();
     UI.refreshPanels();
+    refreshPreview('shop-preview');             // reflect the new equipped look
   },
   onEquipSkin: (skin) => {
     equipStickById(skin.id);
     sfx.buy();
     UI.toast(`Equipped ${skin.name}`, 'good');
     updatePreview();
+  },
+  // a card was tapped — try the item on in the panel preview before buying
+  onPreviewItem: (item) => {
+    refreshPreview('shop-preview', { item });
+    setPreviewCap('shop-preview-cap', `${item.name}${state.ownedShopItems.includes(item.id) ? ' ✓' : `  🪙${item.price}`}`);
+  },
+  onPreviewSkin: (skin) => {
+    refreshPreview('skins-preview', { stickId: skin.id });
+    setPreviewCap('skins-preview-cap', skin.name);
+  },
+  // a panel just opened — show the current character, reset the caption
+  onPanelShown: (name) => {
+    if (name === 'shop') { refreshPreview('shop-preview'); setPreviewCap('shop-preview-cap', 'Tap an item to try it on'); }
+    else if (name === 'skins') { refreshPreview('skins-preview'); setPreviewCap('skins-preview-cap', 'Tap a stick to try it'); }
   },
   onReset: () => {
     resetSave();
@@ -1009,65 +1025,79 @@ animate();
 // ---------------------------------------------------------------------------
 // Locker / start-screen 3D avatar preview (shows equipped cosmetics)
 // ---------------------------------------------------------------------------
-function ensurePreview() {
-  const pcanvas = document.getElementById('preview-canvas');
-  if (!pcanvas || preview) return;
-  const r = new THREE.WebGLRenderer({ canvas: pcanvas, antialias: true, alpha: true });
+// Lazily create a preview (its own tiny renderer/scene/camera) for a given canvas id.
+function getPreview(id) {
+  if (previews[id]) return previews[id];
+  const canvas = document.getElementById(id);
+  if (!canvas) return null;
+  const w = canvas.clientWidth || 196, h = canvas.clientHeight || 300;
+  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  r.setSize(pcanvas.clientWidth, pcanvas.clientHeight, false);
+  r.setSize(w, h, false);
   const s = new THREE.Scene();
   s.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.1));
   const dl = new THREE.DirectionalLight(0xffffff, 1); dl.position.set(3, 6, 4); s.add(dl);
-  const cam = new THREE.PerspectiveCamera(40, pcanvas.clientWidth / pcanvas.clientHeight, 0.1, 100);
-  cam.position.set(0, 2.6, 9);
-  cam.lookAt(0, 2.2, 0);
+  const cam = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
+  cam.position.set(0, 2.6, 9); cam.lookAt(0, 2.2, 0);
   const root = new THREE.Group(); s.add(root);
-  preview = { r, s, cam, root, pcanvas };
-  updatePreview();
+  const inst = { r, s, cam, root, auraRing: null, canvas, w: 0, h: 0 };
+  previews[id] = inst;
+  buildPreviewModel(inst, {});
+  return inst;
 }
 
-function updatePreview() {
-  ensurePreview();
-  if (!preview) return;
-  preview.root.clear();
+// Build the avatar for a preview. `opts` lets a shop/stick card be "tried on" before
+// buying: { item } overrides its own category, { stickId } overrides the held stick.
+function buildPreviewModel(inst, opts = {}) {
+  const eq = state.equipped, item = opts.item || null;
+  inst.root.clear();
+  const bodyId = item && item.cat === 'Skins' ? item.id : eq.Skins;
+  const hatId  = item && item.cat === 'Hats'  ? item.id : eq.Hats;
+  const auraId = item && item.cat === 'Auras' ? item.id : eq.Auras;
+  const stickId = opts.stickId || (item && item.cat === 'Sticks' ? item.skin.id : state.equippedStick);
 
-  const bodyItem = SHOP_ITEMS.find((i) => i.id === state.equipped.Skins);
-  const ch = createCharacter({ body: bodyItem ? bodyItem.color : 0xffcf6e, shirt: 0x3aa0ff });
-  preview.root.add(ch);
-
-  // hat
-  const hatItem = SHOP_ITEMS.find((i) => i.id === state.equipped.Hats);
-  if (hatItem) preview.root.add(makeHat(hatItem));
-
-  // stick in hand
-  const stick = buildStick(findSkin(state.equippedStick));
-  stick.scale.setScalar(0.8);
-  stick.position.set(1.2, 2.4, 0.3);
-  stick.rotation.z = -0.5;
-  preview.root.add(stick);
-
-  // aura ring
-  const auraItem = SHOP_ITEMS.find((i) => i.id === state.equipped.Auras);
+  const bodyItem = SHOP_ITEMS.find((i) => i.id === bodyId);
+  inst.root.add(createCharacter({ body: bodyItem ? bodyItem.color : 0xffcf6e, shirt: 0x3aa0ff }));
+  const hatItem = SHOP_ITEMS.find((i) => i.id === hatId);
+  if (hatItem) inst.root.add(makeHat(hatItem));
+  const stick = buildStick(findSkin(stickId));
+  stick.scale.setScalar(0.8); stick.position.set(1.2, 2.4, 0.3); stick.rotation.z = -0.5;
+  inst.root.add(stick);
+  const auraItem = SHOP_ITEMS.find((i) => i.id === auraId);
   if (auraItem) {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(2.2, 0.18, 8, 32),
-      new THREE.MeshStandardMaterial({ color: auraItem.color, emissive: auraItem.color, emissiveIntensity: 1 })
-    );
-    ring.rotation.x = Math.PI / 2; ring.position.y = 0.3;
-    preview.root.add(ring);
-    preview.auraRing = ring;
-  } else preview.auraRing = null;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.18, 8, 32),
+      new THREE.MeshStandardMaterial({ color: auraItem.color, emissive: auraItem.color, emissiveIntensity: 1 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.3; inst.root.add(ring); inst.auraRing = ring;
+  } else inst.auraRing = null;
 }
 
-function updatePreviewFrame() {
-  if (!preview) return;
-  const visible = !startScreen.classList.contains('hidden') ||
-    document.getElementById('skins-panel').classList.contains('show');
-  if (!visible) return;
-  preview.root.rotation.y += 0.012;
-  if (preview.auraRing) preview.auraRing.rotation.z += 0.03;
-  preview.r.render(preview.s, preview.cam);
+// refresh one preview canvas (creating it if needed), optionally trying an item on
+function refreshPreview(id, opts) { const inst = getPreview(id); if (inst) buildPreviewModel(inst, opts || {}); }
+
+// keep every live preview in sync with the equipped cosmetics (after a buy/equip)
+function updatePreview() { for (const id in previews) buildPreviewModel(previews[id], {}); }
+
+function renderPreviewCanvas(id) {
+  const inst = getPreview(id); if (!inst) return;
+  const c = inst.canvas;
+  if (c.clientWidth && (inst.w !== c.clientWidth || inst.h !== c.clientHeight)) {
+    inst.w = c.clientWidth; inst.h = c.clientHeight;
+    inst.r.setSize(inst.w, inst.h, false);
+    inst.cam.aspect = inst.w / inst.h; inst.cam.updateProjectionMatrix();
+  }
+  inst.root.rotation.y += 0.012;
+  if (inst.auraRing) inst.auraRing.rotation.z += 0.03;
+  inst.r.render(inst.s, inst.cam);
 }
+
+// render whichever previews are currently on screen
+function updatePreviewFrame() {
+  if (!startScreen.classList.contains('hidden')) renderPreviewCanvas('preview-canvas');
+  if (document.getElementById('shop-panel').classList.contains('show')) renderPreviewCanvas('shop-preview');
+  if (document.getElementById('skins-panel').classList.contains('show')) renderPreviewCanvas('skins-preview');
+}
+
+function setPreviewCap(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 
 // ---------------------------------------------------------------------------
 // Resize
@@ -1076,12 +1106,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  if (preview) {
-    const pc = preview.pcanvas;
-    preview.cam.aspect = pc.clientWidth / pc.clientHeight;
-    preview.cam.updateProjectionMatrix();
-    preview.r.setSize(pc.clientWidth, pc.clientHeight, false);
-  }
+  // preview canvases re-sync their size lazily inside renderPreviewCanvas()
 });
 
 // expose a couple things for quick debugging in devtools

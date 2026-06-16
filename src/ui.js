@@ -3,6 +3,8 @@ import { state, isSkinUnlocked, nextLockedSkin } from './state.js';
 
 let cb = {};
 const $ = (id) => document.getElementById(id);
+let selectedShopId = null;   // card currently "tried on" in the shop preview
+let selectedSkinId = null;   // stick currently "tried on" in the sticks preview
 
 export function initUI(callbacks) {
   cb = callbacks;
@@ -29,6 +31,17 @@ export function initUI(callbacks) {
 
   $('reset-btn').addEventListener('click', () => {
     if (confirm('Reset all progress, coins, and unlocks?')) cb.onReset?.();
+  });
+
+  // "Items / Character" toggle (only visible on narrow screens)
+  document.querySelectorAll('.view-toggle').forEach((vt) => {
+    vt.querySelectorAll('.vt-btn').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const panel = $(vt.dataset.target);
+        vt.querySelectorAll('.vt-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        panel.classList.toggle('show-char', btn.dataset.view === 'char');
+      }));
   });
 
   updateHUD();
@@ -135,10 +148,15 @@ export function updateAbilities(abilities, bossActive, shardChargeFrac) {
 export function openPanel(name) {
   closePanels(true);
   $('overlay-scrim').classList.add('show');
-  $(`${name}-panel`).classList.add('show');
-  if (name === 'shop') renderShop(currentShopCat());
-  if (name === 'skins') renderSkins();
+  const panel = $(`${name}-panel`);
+  panel.classList.add('show');
+  panel.classList.remove('show-char');   // default to the items view each time it opens
+  const tog = panel.querySelector('.view-toggle');
+  if (tog) tog.querySelectorAll('.vt-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === 'items'));
+  if (name === 'shop') { selectedShopId = null; renderShop(currentShopCat()); }
+  if (name === 'skins') { selectedSkinId = null; renderSkins(); }
   cb.onPanelOpen?.();   // pause game + release the pointer, however the panel was opened
+  cb.onPanelShown?.(name);   // refresh that panel's character preview
 }
 
 export function closePanels(silent) {
@@ -163,7 +181,7 @@ function renderShop(cat) {
     const equippedCat = item.cat === 'Sticks' ? null : item.cat;
     const isEquipped = equippedCat && state.equipped[equippedCat] === item.id;
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = `card${item.id === selectedShopId ? ' selected' : ''}`;
     card.innerHTML = `
       <div class="card-emoji" style="background:${hex(item.color)}">${item.emoji}</div>
       <div class="card-name">${item.name}</div>
@@ -171,8 +189,16 @@ function renderShop(cat) {
       <button class="card-btn ${owned ? (isEquipped ? 'equipped' : 'equip') : 'buy'}">
         ${owned ? (item.cat === 'Sticks' ? 'Use in Stash' : (isEquipped ? 'Equipped ✓' : 'Equip')) : 'Buy'}
       </button>`;
+    // tap the card to try the item on in the preview
+    card.addEventListener('click', () => {
+      selectedShopId = item.id;
+      grid.querySelectorAll('.card').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+      cb.onPreviewItem?.(item);
+    });
     const btn = card.querySelector('.card-btn');
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (!owned) cb.onBuy?.(item);
       else if (item.cat !== 'Sticks') cb.onEquipItem?.(item, isEquipped);
       else openPanel('skins');
@@ -198,7 +224,7 @@ function renderSkins() {
 function skinCard(skin, unlocked, reqLabel) {
   const equipped = state.equippedStick === skin.id;
   const card = document.createElement('div');
-  card.className = `card skin-card ${unlocked ? '' : 'locked'}`;
+  card.className = `card skin-card ${unlocked ? '' : 'locked'}${skin.id === selectedSkinId ? ' selected' : ''}`;
   const swatch = hex(skin.colors.main);
   card.innerHTML = `
     <div class="card-emoji skin-swatch" style="background:${swatch}">
@@ -210,8 +236,16 @@ function skinCard(skin, unlocked, reqLabel) {
     <button class="card-btn ${equipped ? 'equipped' : (unlocked ? 'equip' : 'locked-btn')}" ${unlocked ? '' : 'disabled'}>
       ${equipped ? 'Equipped ✓' : (unlocked ? 'Equip' : 'Locked')}
     </button>`;
+  // tap any stick (even locked ones) to preview it on the character
+  card.addEventListener('click', () => {
+    selectedSkinId = skin.id;
+    $('skins-grid').querySelectorAll('.card').forEach((c) => c.classList.remove('selected'));
+    card.classList.add('selected');
+    cb.onPreviewSkin?.(skin);
+  });
   if (unlocked) {
-    card.querySelector('.card-btn').addEventListener('click', () => {
+    card.querySelector('.card-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
       cb.onEquipSkin?.(skin);
       renderSkins();
     });
